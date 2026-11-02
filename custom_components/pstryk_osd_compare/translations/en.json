@@ -1,0 +1,94 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pstryk OSD Compare",
+        "description": "Enter your Pstryk API key (Pstryk app → settings → API). You can reuse the same key as in Pstryk AiO.",
+        "data": {
+          "api_key": "Pstryk API key"
+        }
+      },
+      "source": {
+        "title": "DSO / meter data source",
+        "description": "Choose a discovered Tauron AMIplus meter, or point to hourly statistics manually.\n\nIf nothing is listed: install [Tauron AMIplus]({tauron_url}) via HACS, enable generation + balanced + store statistics, wait for the first poll, then retry.",
+        "data": {
+          "source": "Source"
+        }
+      },
+      "custom_stats": {
+        "title": "Custom hourly statistics",
+        "description": "Select long-term statistics (sum) for grid import and export. Balanced series are optional.",
+        "data": {
+          "import_stat": "Import (kWh)",
+          "export_stat": "Export (kWh)",
+          "balanced_import_stat": "Balanced import (optional)",
+          "balanced_export_stat": "Balanced export (optional)"
+        }
+      },
+      "contract": {
+        "title": "Pstryk contract period",
+        "description": "Comparison runs only inside this period. Suggested start from API: {suggested}.",
+        "data": {
+          "contract_start": "Contract start",
+          "contract_end": "Contract end (optional)",
+          "backfill_tauron": "Auto-backfill missing Tauron statistics (max 365 days)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate",
+        "description": "Pstryk API key was rejected. Enter a valid key.",
+        "data": {
+          "api_key": "Pstryk API key"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid Pstryk API key",
+      "cannot_connect": "Cannot reach Pstryk API",
+      "no_tauron_stats": "No usable DSO statistics found",
+      "invalid_contract_dates": "Contract end must be after start; start cannot be in the future"
+    },
+    "abort": {
+      "already_configured": "This meter is already configured",
+      "reauth_successful": "Re-authentication successful"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Pstryk OSD Compare options",
+        "description": "Adjustments: JSON object mapping \"YYYY-MM\" to PLN. Official invoices: JSON object mapping \"YYYY-MM\" to an object with invoice, deposit_used, bonus, inflow, number (easier: the FV form entities). Settlement day: before that day the app shows deposit through M−2, then through M−1.",
+        "data": {
+          "tauron_basis": "DSO energy basis (balanced / gross)",
+          "sync_interval_hours": "Sync interval (hours)",
+          "backfill_tauron": "Auto-backfill Tauron gaps",
+          "deposit_opening_balance": "Deposit opening balance (PLN)",
+          "monthly_fee": "Extra monthly fee (PLN)",
+          "settlement_day": "Invoice settlement day (1–28)",
+          "monthly_adjustments": "Monthly adjustments (JSON)",
+          "official_months": "Official invoice months (JSON)"
+        }
+      }
+    },
+    "error": {
+      "invalid_adjustments": "Invalid adjustments or official_months JSON"
+    }
+  },
+  "exceptions": {
+    "fv_no_month": {
+      "message": "Choose the invoice month first."
+    },
+    "fv_no_invoice": {
+      "message": "Enter the gross invoice amount before saving."
+    },
+    "fv_not_saved": {
+      "message": "No saved invoice for {month}."
+    }
+  },
+  "issues": {
+    "dso_stale": {
+      "title": "No fresh DSO data for {meter}",
+      "description": "The last hour with DSO (Tauron) statistics is {last} — more than {days} days old. Deposit and Δ values stop at that point.\n\nCheck the Tauron AMIplus integration (login, eLicznik availability, `store statistics` enabled). This warning disappears automatically after the next successful sync."
+    }
+  }
+}

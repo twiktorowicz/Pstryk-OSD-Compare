@@ -1,0 +1,94 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pstryk OSD Compare",
+        "description": "Podaj klucz API Pstryk (aplikacja Pstryk → ustawienia → API). Możesz użyć tego samego klucza co w Pstryk AiO.",
+        "data": {
+          "api_key": "Klucz API Pstryk"
+        }
+      },
+      "source": {
+        "title": "Źródło danych OSD / licznika",
+        "description": "Wybierz wykryty licznik Tauron AMIplus albo wskaż godzinowe statystyki ręcznie.\n\nJeśli lista jest pusta: zainstaluj [Tauron AMIplus]({tauron_url}) przez HACS, włącz generation + balanced + store statistics, poczekaj na pierwsze pobranie i spróbuj ponownie.",
+        "data": {
+          "source": "Źródło"
+        }
+      },
+      "custom_stats": {
+        "title": "Własne statystyki godzinowe",
+        "description": "Wybierz long-term statistics (sum) dla poboru i oddania. Serie bilansowane są opcjonalne.",
+        "data": {
+          "import_stat": "Pobór (kWh)",
+          "export_stat": "Oddanie (kWh)",
+          "balanced_import_stat": "Pobór po bilansowaniu (opcjonalnie)",
+          "balanced_export_stat": "Oddanie po bilansowaniu (opcjonalnie)"
+        }
+      },
+      "contract": {
+        "title": "Okres umowy Pstryk",
+        "description": "Porównanie działa tylko w tym okresie. Podpowiedziana data startu z API: {suggested}.",
+        "data": {
+          "contract_start": "Początek umowy",
+          "contract_end": "Koniec umowy (opcjonalnie)",
+          "backfill_tauron": "Uzupełniaj brakujące statystyki Tauron (max 365 dni)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Ponowne uwierzytelnienie",
+        "description": "Klucz API Pstryk został odrzucony. Podaj ważny klucz.",
+        "data": {
+          "api_key": "Klucz API Pstryk"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Nieprawidłowy klucz API Pstryk",
+      "cannot_connect": "Brak połączenia z API Pstryk",
+      "no_tauron_stats": "Brak użytecznych statystyk OSD",
+      "invalid_contract_dates": "Koniec umowy musi być po starcie; start nie może być w przyszłości"
+    },
+    "abort": {
+      "already_configured": "Ten licznik jest już skonfigurowany",
+      "reauth_successful": "Ponowne uwierzytelnienie zakończone powodzeniem"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opcje Pstryk OSD Compare",
+        "description": "Korekty: obiekt JSON \"YYYY-MM\" → PLN. Oficjalne FV: obiekt JSON \"YYYY-MM\" → obiekt z polami invoice, deposit_used, bonus, inflow, number (wygodniej: encje formularza FV). Dzień rozliczenia: do tego dnia aplikacja pokazuje depozyt do M−2, potem do M−1.",
+        "data": {
+          "tauron_basis": "Podstawa OSD (balanced / gross)",
+          "sync_interval_hours": "Interwał synchronizacji (godziny)",
+          "backfill_tauron": "Auto-uzupełnianie luk Tauron",
+          "deposit_opening_balance": "Saldo początkowe depozytu (PLN)",
+          "monthly_fee": "Dodatkowa opłata miesięczna (PLN)",
+          "settlement_day": "Dzień rozliczenia faktury (1–28)",
+          "monthly_adjustments": "Korekty miesięczne (JSON)",
+          "official_months": "Oficjalne FV / miesiące (JSON)"
+        }
+      }
+    },
+    "error": {
+      "invalid_adjustments": "Nieprawidłowy JSON korekt lub FV (oczekiwane mapy YYYY-MM)"
+    }
+  },
+  "exceptions": {
+    "fv_no_month": {
+      "message": "Najpierw wybierz miesiąc faktury."
+    },
+    "fv_no_invoice": {
+      "message": "Wpisz kwotę brutto faktury przed zapisem."
+    },
+    "fv_not_saved": {
+      "message": "Brak zapisanej FV za {month}."
+    }
+  },
+  "issues": {
+    "dso_stale": {
+      "title": "Brak świeżych danych OSD dla {meter}",
+      "description": "Ostatnia godzina ze statystyk OSD (Tauron) to {last} — ponad {days} dni temu. Depozyt i różnice zatrzymują się na tej godzinie.\n\nSprawdź integrację Tauron AMIplus (logowanie, dostępność eLicznika, włączone `store statistics`). Ostrzeżenie zniknie samo po udanej synchronizacji."
+    }
+  }
+}

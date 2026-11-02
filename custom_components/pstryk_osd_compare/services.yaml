@@ -1,0 +1,145 @@
+resync:
+  name: Resync history
+  description: Re-fetch Pstryk and DSO data from a start date and rewrite statistics.
+  fields:
+    config_entry_id:
+      name: Config entry
+      description: Config entry id of Pstryk OSD Compare
+      required: true
+      selector:
+        config_entry:
+          integration: pstryk_osd_compare
+    start_date:
+      name: Start date
+      description: Optional start (defaults to contract_start)
+      required: false
+      selector:
+        date:
+
+export_csv:
+  name: Export CSV
+  description: Export hourly comparison CSV under /config/www/pstryk_osd_compare/
+  fields:
+    config_entry_id:
+      name: Config entry
+      description: Config entry id of Pstryk OSD Compare
+      required: true
+      selector:
+        config_entry:
+          integration: pstryk_osd_compare
+    start_date:
+      name: Start date
+      required: true
+      selector:
+        date:
+    end_date:
+      name: End date
+      required: true
+      selector:
+        date:
+
+set_monthly_adjustment:
+  name: Set monthly deposit adjustment
+  description: >
+    Add/update a PLN correction for a calendar month (referral credit, fees outside
+    hourly API). Amount 0 removes the adjustment. Reloads the integration.
+  fields:
+    config_entry_id:
+      name: Config entry
+      required: true
+      selector:
+        config_entry:
+          integration: pstryk_osd_compare
+    month:
+      name: Month
+      description: YYYY-MM
+      required: true
+      example: "2026-09"
+      selector:
+        text:
+    amount:
+      name: Amount (PLN)
+      description: Positive credit / negative debit; 0 removes
+      required: true
+      selector:
+        number:
+          step: 0.01
+          mode: box
+
+set_official_month:
+  name: Set official FV month
+  description: >
+    Override deposit ledger fields from a Pstryk invoice (FV): invoice, deposit_used,
+    bonus, to_pay, inflow. Use clear=true to remove the override. Reloads the integration.
+  fields:
+    config_entry_id:
+      name: Config entry
+      required: true
+      selector:
+        config_entry:
+          integration: pstryk_osd_compare
+    month:
+      name: Month
+      description: YYYY-MM (optional if months_json is set)
+      required: false
+      example: "2026-09"
+      selector:
+        text:
+    months_json:
+      name: Bulk months JSON
+      description: >
+        Merge many months in one call, e.g.
+        {"2026-05":{"invoice":160.12,"deposit_used":0,"to_pay":160.12,"inflow":547.7}}
+      required: false
+      selector:
+        text:
+          multiline: true
+    clear:
+      name: Clear override
+      required: false
+      selector:
+        boolean:
+    invoice:
+      name: Invoice brutto (PLN)
+      required: false
+      selector:
+        number:
+          step: 0.01
+          mode: box
+    deposit_used:
+      name: Deposit used (PLN)
+      description: '"Rozliczenie depozytu prosumenta" from FV'
+      required: false
+      selector:
+        number:
+          step: 0.01
+          mode: box
+    bonus:
+      name: Loyalty bonus (PLN)
+      description: "Rozliczenie bonusu lojalnościowego"
+      required: false
+      selector:
+        number:
+          step: 0.01
+          mode: box
+    to_pay:
+      name: To pay (PLN)
+      required: false
+      selector:
+        number:
+          step: 0.01
+          mode: box
+    inflow:
+      name: Deposit inflow (PLN)
+      description: Oddana energia / zasilenie depozytu
+      required: false
+      selector:
+        number:
+          step: 0.01
+          mode: box
+    number:
+      name: Invoice number
+      example: "SE/P/1234/09/2026"
+      required: false
+      selector:
+        text:

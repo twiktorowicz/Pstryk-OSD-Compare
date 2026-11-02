@@ -1,0 +1,6 @@
+{
+  "name": "Pstryk OSD Compare",
+  "render_readme": true,
+  "country": ["PL"],
+  "homeassistant": "2025.1.0"
+}

@@ -1,0 +1,243 @@
+# Pstryk OSD Compare — example dashboard (2 views: "osd" + subview "osd-fv" with the FV form).
+# Before pasting: replace YOUR_METER_ID with your meter slug. Exact statistic IDs are listed in
+# Developer tools → States → sensor.osd_miesiace → attribute "statistics".
+# Only built-in cards. Δ = Pstryk − Tauron everywhere.
+views:
+  - title: OSD Compare
+    path: osd
+    icon: mdi:scale-balance
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Status danych
+            icon: mdi:database-check
+          - type: entities
+            entities:
+              - entity: sensor.osd_dane_do
+                name: Dane Taurona do
+              - entity: sensor.osd_pokrycie
+                name: Pokrycie godzin (od umowy)
+              - entity: sensor.osd_ostatni_sync
+                name: Ostatnia synchronizacja
+          - type: markdown
+            content: >-
+              **Δ = Pstryk − Tauron.** Plus oznacza, że Pstryk policzył więcej.
+              Pomiar OSD: {{ state_attr('sensor.osd_miesiace','basis') or 'balanced' }}.
+              Rozliczone do: **{{ state_attr('sensor.osd_miesiace','settled_through') or '—' }}**
+              (Pstryk wystawia FV zwykle 4.–6. dnia miesiąca; wpisana FV od razu przesuwa tę datę).
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: "Depozyt: wpływ różnic pomiarowych"
+            icon: mdi:piggy-bank
+          - type: entities
+            entities:
+              - type: section
+                label: Rozliczony (jak w aplikacji Pstryk)
+              - entity: sensor.osd_depozyt_pstryk_rozliczony
+                name: Depozyt wg Pstryka
+              - entity: sensor.osd_depozyt_tauron_rozliczony
+                name: Depozyt, gdyby liczyć z pomiarów Taurona
+              - entity: sensor.osd_depozyt_roznica_rozliczona
+                name: Różnica przez pomiary
+              - type: section
+                label: Na dziś (otwarty miesiąc = szacunek)
+              - entity: sensor.osd_depozyt_pstryk
+                name: Depozyt wg Pstryka
+              - entity: sensor.osd_depozyt_tauron
+                name: Depozyt wg pomiarów Taurona
+              - entity: sensor.osd_depozyt_roznica
+                name: Różnica przez pomiary
+
+      - type: grid
+        column_span: 2
+        cards:
+          - type: heading
+            heading: Miesiące — pomiary i depozyt
+            icon: mdi:table
+          - type: markdown
+            content: |
+              {%- set rows = state_attr('sensor.osd_miesiace','rows') or [] -%}
+              {%- set t = state_attr('sensor.osd_miesiace','totals') or {} -%}
+              {%- set st = {'fv':'FV','estimate':'szacunek','open':'otwarty'} -%}
+              {%- macro n(x, d=1) -%}{{ '—' if x is none else ('%.' ~ d ~ 'f') | format(x) }}{%- endmacro -%}
+              {%- macro s(x, d=1) -%}{{ '—' if x is none else ('%+.' ~ d ~ 'f') | format(x) }}{%- endmacro -%}
+              | Miesiąc | Status | Godz. | Import P | Import T | Δ | Eksport P | Eksport T | Δ (%) | Depozyt P | Depozyt T | Δ depozytu |
+              |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+              {% for r in rows -%}
+              | {{ r.month }} | {{ st.get(r.status, r.status) }} | {{ r.hours }} | {{ n(r.imp_p) }} | {{ n(r.imp_t) }} | {{ s(r.d_imp) }} | {{ n(r.exp_p) }} | {{ n(r.exp_t) }} | {{ s(r.d_exp) }} ({{ s(r.d_exp_pct) }}%) | {{ n(r.dep_p, 2) }} | {{ n(r.dep_t, 2) }} | **{{ s(r.d_dep, 2) }}** ({{ s(r.d_dep_month, 2) }}) |
+              {% endfor -%}
+              {% if rows and t -%}
+              | **Suma** | | | {{ n(t.imp_p) }} | {{ n(t.imp_t) }} | {{ s(t.d_imp) }} | {{ n(t.exp_p) }} | {{ n(t.exp_t) }} | {{ s(t.d_exp) }} ({{ s(t.d_exp_pct) }}%) | {{ n(t.dep_p, 2) }} | {{ n(t.dep_t, 2) }} | **{{ s(t.d_dep, 2) }}** |
+              {% else -%}
+              | *brak danych — trwa pierwsza synchronizacja* | | | | | | | | | | | |
+              {% endif %}
+
+              kWh i PLN. Depozyt = saldo na koniec miesiąca; Δ depozytu narasta, w nawiasie przyrost w danym miesiącu.
+              Faktura za miesiąc schodzi z depozytu (saldo z końca poprzedniego miesiąca) w całości — „bonus lojalnościowy” na FV to też depozyt.
+              FV = korekty z faktury (opłaty spoza API) stosowane do obu stron jednakowo, więc Δ wynika tylko z pomiarów.
+            grid_options:
+              columns: 24
+              rows: auto
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Import miesięcznie
+            icon: mdi:transmission-tower-import
+          - type: statistics-graph
+            chart_type: bar
+            period: month
+            days_to_show: 365
+            stat_types:
+              - change
+            entities:
+              - entity: pstryk_osd_compare:YOUR_METER_ID_pstryk_import
+                name: Pstryk
+              - entity: pstryk_osd_compare:YOUR_METER_ID_tauron_import
+                name: Tauron
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Eksport miesięcznie
+            icon: mdi:transmission-tower-export
+          - type: statistics-graph
+            chart_type: bar
+            period: month
+            days_to_show: 365
+            stat_types:
+              - change
+            entities:
+              - entity: pstryk_osd_compare:YOUR_METER_ID_pstryk_export
+                name: Pstryk
+              - entity: pstryk_osd_compare:YOUR_METER_ID_tauron_export
+                name: Tauron
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Szczegóły dnia
+            icon: mdi:calendar-clock
+          - type: entities
+            entities:
+              - entity: date.osd_dzien_analizy
+                name: Dzień analizy
+              - entity: sensor.osd_wybrany_dzien
+                name: Δ wartości energii w dniu (PLN)
+          - type: markdown
+            content: |
+              | Godz | Import P | Import T | Δ | Eksport P | Eksport T | Δ | Δ zł |
+              |---|---:|---:|---:|---:|---:|---:|---:|
+              {% for h in state_attr('sensor.osd_wybrany_dzien','hours') or [] -%}
+              | {{ h.hour }} | {{ h.p_imp }} | {{ h.T_imp }} | {{ h.d_imp }} | {{ h.p_exp }} | {{ h.T_exp }} | {{ h.d_exp }} | {{ ((h.d_sell_value or 0) - (h.d_buy_value or 0)) | round(2) }} |
+              {% endfor %}
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Korekty z FV
+            icon: mdi:file-document-check
+          - type: markdown
+            content: |
+              {%- set rows = state_attr('sensor.osd_miesiace','rows') or [] -%}
+              | Miesiąc | Nr FV | Faktura | Z depozytu | w tym bonus | Gotówką |
+              |---|---|---:|---:|---:|---:|
+              {% for r in rows if r.status == 'fv' -%}
+              | {{ r.month }} | {{ r.fv_number or '—' }} | {{ '%.2f' | format(r.invoice_p) }} | {{ '%.2f' | format(r.used_p) }} | {{ '%.2f' | format(r.bonus) }} | {{ '%.2f' | format([r.invoice_p - r.used_p, 0] | max) }} |
+              {% endfor %}
+              {%- set missing = state_attr('select.osd_fv_miesiac','missing_fv') or [] %}
+              {% if missing %}Brak FV za: **{{ missing | join(', ') }}**.{% endif %}
+          - type: button
+            name: Dodaj / popraw FV
+            icon: mdi:file-document-edit-outline
+            show_state: false
+            tap_action:
+              action: navigate
+              navigation_path: osd-fv
+
+  - title: Dodaj FV
+    path: osd-fv
+    icon: mdi:file-document-edit-outline
+    subview: true
+    back_path: osd
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Faktura Pstryk (FV)
+            icon: mdi:file-document-edit-outline
+          - type: entities
+            entities:
+              - entity: select.osd_fv_miesiac
+                name: Miesiąc
+              - entity: text.osd_fv_numer
+                name: Numer FV
+              - entity: number.osd_fv_faktura
+                name: Wartość brutto faktury
+              - entity: number.osd_fv_z_depozytu
+                name: Rozliczenie depozytu prosumenta
+              - entity: number.osd_fv_bonus
+                name: Rozliczenie bonusu lojalnościowego
+              - entity: number.osd_fv_oddana_energia
+                name: Oddana energia (zasilenie depozytu)
+          - type: button
+            name: Zapisz FV
+            icon: mdi:content-save
+            show_state: false
+            grid_options:
+              columns: 6
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.osd_fv_zapisz
+              confirmation:
+                text: Zapisać FV dla wybranego miesiąca? Integracja przeliczy depozyt.
+          - type: button
+            name: Usuń FV
+            icon: mdi:delete-outline
+            show_state: false
+            grid_options:
+              columns: 6
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.osd_fv_usun
+              confirmation:
+                text: Usunąć zapisaną FV dla wybranego miesiąca?
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Podpowiedź
+            icon: mdi:help-circle-outline
+          - type: markdown
+            content: |
+              {%- set e = 'select.osd_fv_miesiac' -%}
+              {%- set fv = state_attr(e, 'saved_fv') or {} -%}
+              {%- macro v(x) -%}{{ '—' if x is none else x }}{%- endmacro -%}
+              **Miesiąc: {{ states(e) }}** —
+              {% if fv %}zapisana FV {{ fv.get('number') or '' }}{% else %}bez FV (pola wstępnie wypełnione modelem z API){% endif %}
+
+              | | Z modelu (API) | Zapisane z FV |
+              |---|---:|---:|
+              | Faktura brutto | {{ v(state_attr(e, 'model_invoice')) }} | {{ v(fv.get('invoice')) }} |
+              | Oddana energia | {{ v(state_attr(e, 'model_inflow')) }} | {{ v(fv.get('inflow')) }} |
+              | Z depozytu | — | {{ v(fv.get('deposit_used')) }} |
+              | Bonus | — | {{ v(fv.get('bonus')) }} |
+
+              Kwoty przepisz z FV Pstryka (aplikacja → Faktury):
+              - **Wartość brutto faktury** — suma faktury.
+              - **Rozliczenie depozytu prosumenta** i **Rozliczenie bonusu lojalnościowego** — obie pozycje schodzą z depozytu.
+              - **Oddana energia** — zasilenie depozytu za miesiąc (zwykle równe wartości z modelu).
+
+              Zapis przeładowuje integrację (kilka sekund), potem wróć strzałką do widoku OSD.
+              {% set missing = state_attr(e, 'missing_fv') or [] %}{% if missing %}Brak FV za: **{{ missing | join(', ') }}**.{% endif %}
