@@ -216,7 +216,7 @@ Struktura `custom_components/pstryk_osd_compare/`:
 | `fv.py` + `select/number/text/button.py` | formularz FV |
 | `sensor.py`, `date.py`, `services.py` | encje i usługi |
 
-Wydanie: podbij `version` w `manifest.json`, utwórz tag `vX.Y.Z` — workflow `release.yaml` zbuduje release (tag musi zgadzać się z wersją).
+Wydanie: podbij `version` w `manifest.json`, dopisz sekcję `## vX.Y.Z` w [`CHANGELOG.md`](CHANGELOG.md), utwórz tag `vX.Y.Z` — workflow `release.yaml` zbuduje release z opisem z changeloga (widocznym też w HA przy aktualizacji). Tag musi zgadzać się z wersją, a sekcja changeloga musi istnieć.
 
 ---
 

@@ -18,6 +18,10 @@ jobs:
           tag="${GITHUB_REF_NAME#v}"
           ver=$(python3 -c "import json;print(json.load(open('custom_components/pstryk_osd_compare/manifest.json'))['version'])")
           test "$tag" = "$ver" || { echo "tag $tag != manifest $ver"; exit 1; }
+      - name: Release notes from CHANGELOG.md
+        run: |
+          awk -v h="## ${GITHUB_REF_NAME}" '$0==h{f=1;next} /^## /{f=0} f' CHANGELOG.md > notes.md
+          test -s notes.md || { echo "no CHANGELOG section for ${GITHUB_REF_NAME}"; exit 1; }
       - uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body_path: notes.md
