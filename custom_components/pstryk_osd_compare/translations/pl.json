@@ -10,14 +10,14 @@
       },
       "source": {
         "title": "Źródło danych OSD / licznika",
-        "description": "Wybierz wykryty licznik Tauron AMIplus albo wskaż godzinowe statystyki ręcznie.\n\nJeśli lista jest pusta: zainstaluj [Tauron AMIplus]({tauron_url}) przez HACS, włącz generation + balanced + store statistics, poczekaj na pierwsze pobranie i spróbuj ponownie.",
+        "description": "Wybierz wykryty licznik OSD (Tauron AMIplus, Enea, Energa) albo wskaż godzinowe statystyki ręcznie (PGE, Stoen, czytnik P1 / wM-Bus, inne).\n\nJeśli licznika nie ma na liście: zainstaluj integrację OSD (Tauron: [Tauron AMIplus]({tauron_url}) z generation + balanced + store statistics), poczekaj na pierwszy import i spróbuj ponownie. Instrukcja dla każdego OSD: [README]({docs_url}).",
         "data": {
           "source": "Źródło"
         }
       },
       "custom_stats": {
         "title": "Własne statystyki godzinowe",
-        "description": "Wybierz long-term statistics (sum) dla poboru i oddania. Serie bilansowane są opcjonalne.",
+        "description": "Wybierz statystyki długoterminowe z sumą (sensory energii, kWh) dla poboru i oddania. Kilka statystyk w jednym polu jest sumowanych — np. strefy taryfy (G12/G12w: strefa 1 + strefa 2). Energia godzinowa liczona jest ze zmiany sumy, więc działają też zwykłe sensory licznika (P1, wM-Bus). Serie po bilansowaniu są opcjonalne, ale tylko parami. Instrukcja: [README]({docs_url}).",
         "data": {
           "import_stat": "Pobór (kWh)",
           "export_stat": "Oddanie (kWh)",
@@ -46,7 +46,8 @@
       "invalid_auth": "Nieprawidłowy klucz API Pstryk",
       "cannot_connect": "Brak połączenia z API Pstryk",
       "no_tauron_stats": "Brak użytecznych statystyk OSD",
-      "invalid_contract_dates": "Koniec umowy musi być po starcie; start nie może być w przyszłości"
+      "invalid_contract_dates": "Koniec umowy musi być po starcie; start nie może być w przyszłości",
+      "invalid_custom_stats": "Wybierz co najmniej jedną statystykę poboru i oddania; serie po bilansowaniu tylko parami"
     },
     "abort": {
       "already_configured": "Ten licznik jest już skonfigurowany",

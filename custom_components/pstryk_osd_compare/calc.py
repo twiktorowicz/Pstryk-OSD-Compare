@@ -46,8 +46,10 @@ def tauron_side(rec: dict[str, Any], basis: str) -> tuple[float, float]:
         t_imp = rec.get("tb_imp")
         t_exp = rec.get("tb_exp")
         if t_imp is None or t_exp is None:
-            # Fall back to gross if balanced series missing for this hour
-            return float(rec.get("t_imp") or 0.0), float(rec.get("t_exp") or 0.0)
+            # No DSO balanced series: hourly netting of gross registers (identical to
+            # Tauron *_balanced_*; idempotent for data the DSO already balanced)
+            net = float(rec.get("t_imp") or 0.0) - float(rec.get("t_exp") or 0.0)
+            return max(net, 0.0), max(-net, 0.0)
         return float(t_imp), float(t_exp)
     if basis == BASIS_GROSS:
         return float(rec.get("t_imp") or 0.0), float(rec.get("t_exp") or 0.0)

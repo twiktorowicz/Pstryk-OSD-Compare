@@ -44,13 +44,16 @@ from .const import (
     SOURCE_TAURON,
 )
 from .pstryk_client import PstrykApiError, PstrykAuthError, PstrykClient
-from .tauron_reader import TauronMeterInfo, async_discover_tauron_meters
+from .osd_series import as_id_list
+from .tauron_reader import OsdMeterInfo, async_discover_osd_meters
 
 _LOGGER = logging.getLogger(__name__)
 
 TAURON_HACS_URL = (
     "https://github.com/skoczo/Home-Assistant-custom-components-Tauron-AMIplus"
 )
+DOCS_URL = "https://github.com/twiktorowicz/Pstryk-OSD-Compare#obsługiwani-operatorzy-osd"
+PROVIDER_LABELS = {"tauron": "Tauron", "enea": "Enea", "energa": "Energa"}
 
 
 class PstrykOsdCompareConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -60,11 +63,11 @@ class PstrykOsdCompareConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         self._api_key: str | None = None
-        self._meters: list[TauronMeterInfo] = []
+        self._meters: list[OsdMeterInfo] = []
         self._source_type: str | None = None
         self._meter_id: str | None = None
         self._meter_name: str | None = None
-        self._stat_ids: dict[str, str | None] = {}
+        self._stat_ids: dict[str, list[str]] = {}
         self._suggested_contract: date | None = None
 
     async def async_step_user(
@@ -106,22 +109,29 @@ class PstrykOsdCompareConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_source(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        self._meters = await async_discover_tauron_meters(self.hass)
+        self._meters = await async_discover_osd_meters(self.hass)
         errors: dict[str, str] = {}
 
         if user_input is not None:
             choice = user_input.get("source")
             if choice == "retry":
-                self._meters = await async_discover_tauron_meters(self.hass)
+                self._meters = await async_discover_osd_meters(self.hass)
             elif choice in ("custom", SOURCE_CUSTOM):
                 return await self.async_step_custom_stats()
-            elif choice and str(choice).startswith("tauron:"):
-                meter_id = str(choice).split(":", 1)[1]
-                meter = next((m for m in self._meters if m.meter_id == meter_id), None)
+            elif choice and ":" in str(choice):
+                provider, meter_id = str(choice).split(":", 1)
+                meter = next(
+                    (
+                        m
+                        for m in self._meters
+                        if m.provider == provider and m.meter_id == meter_id
+                    ),
+                    None,
+                )
                 if meter is None:
                     errors["base"] = "no_tauron_stats"
                 else:
-                    self._source_type = SOURCE_TAURON
+                    self._source_type = meter.provider
                     self._meter_id = meter.meter_id
                     self._meter_name = meter.meter_name or meter.title or meter.meter_id
                     self._stat_ids = dict(meter.stat_ids)
@@ -139,7 +149,7 @@ class PstrykOsdCompareConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 options=[
                                     selector.SelectOptionDict(
                                         value="retry",
-                                        label="Sprawdź ponownie (po instalacji Tauron AMIplus)",
+                                        label="Sprawdź ponownie (po instalacji integracji OSD)",
                                     ),
                                     selector.SelectOptionDict(
                                         value="custom",
@@ -151,13 +161,13 @@ class PstrykOsdCompareConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         )
                     }
                 ),
-                description_placeholders={"tauron_url": TAURON_HACS_URL},
+                description_placeholders={"tauron_url": TAURON_HACS_URL, "docs_url": DOCS_URL},
                 errors=errors,
             )
 
         options = [
             selector.SelectOptionDict(
-                value=f"tauron:{m.meter_id}",
+                value=f"{m.provider}:{m.meter_id}",
                 label=_meter_label(m),
             )
             for m in self._meters
@@ -179,7 +189,7 @@ class PstrykOsdCompareConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     )
                 }
             ),
-            description_placeholders={"tauron_url": TAURON_HACS_URL},
+            description_placeholders={"tauron_url": TAURON_HACS_URL, "docs_url": DOCS_URL},
             errors=errors,
         )
 
@@ -188,37 +198,37 @@ class PstrykOsdCompareConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            imp = user_input["import_stat"]
-            exp = user_input["export_stat"]
-            self._source_type = SOURCE_CUSTOM
-            self._meter_id = str(imp).replace(":", "_").lower()
-            self._meter_name = "custom"
-            self._stat_ids = {
-                "t_imp": imp,
-                "t_exp": exp,
-                "tb_imp": user_input.get("balanced_import_stat"),
-                "tb_exp": user_input.get("balanced_export_stat"),
-            }
-            return await self.async_step_contract()
+            imp = as_id_list(user_input.get("import_stat"))
+            exp = as_id_list(user_input.get("export_stat"))
+            tb_imp = as_id_list(user_input.get("balanced_import_stat"))
+            tb_exp = as_id_list(user_input.get("balanced_export_stat"))
+            if not imp or not exp or bool(tb_imp) != bool(tb_exp):
+                errors["base"] = "invalid_custom_stats"
+            else:
+                self._source_type = SOURCE_CUSTOM
+                self._meter_id = imp[0].replace(":", "_").lower()
+                self._meter_name = "custom"
+                self._stat_ids = {
+                    "t_imp": imp,
+                    "t_exp": exp,
+                    "tb_imp": tb_imp,
+                    "tb_exp": tb_exp,
+                }
+                return await self.async_step_contract()
+
+        multi = selector.StatisticSelectorConfig(multiple=True)
 
         return self.async_show_form(
             step_id="custom_stats",
             data_schema=vol.Schema(
                 {
-                    vol.Required("import_stat"): selector.StatisticSelector(
-                        selector.StatisticSelectorConfig()
-                    ),
-                    vol.Required("export_stat"): selector.StatisticSelector(
-                        selector.StatisticSelectorConfig()
-                    ),
-                    vol.Optional("balanced_import_stat"): selector.StatisticSelector(
-                        selector.StatisticSelectorConfig()
-                    ),
-                    vol.Optional("balanced_export_stat"): selector.StatisticSelector(
-                        selector.StatisticSelectorConfig()
-                    ),
+                    vol.Required("import_stat"): selector.StatisticSelector(multi),
+                    vol.Required("export_stat"): selector.StatisticSelector(multi),
+                    vol.Optional("balanced_import_stat"): selector.StatisticSelector(multi),
+                    vol.Optional("balanced_export_stat"): selector.StatisticSelector(multi),
                 }
             ),
+            description_placeholders={"docs_url": DOCS_URL},
             errors=errors,
         )
 
@@ -265,11 +275,7 @@ class PstrykOsdCompareConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     title=f"Pstryk OSD Compare ({self._meter_name})",
                     data=data,
                     options={
-                        CONF_TAURON_BASIS: (
-                            DEFAULT_TAURON_BASIS
-                            if self._stat_ids.get("tb_imp")
-                            else "gross"
-                        ),
+                        CONF_TAURON_BASIS: DEFAULT_TAURON_BASIS,
                         CONF_SYNC_INTERVAL_HOURS: DEFAULT_SYNC_INTERVAL_HOURS,
                         CONF_DEPOSIT_OPENING_BALANCE: DEFAULT_DEPOSIT_OPENING_BALANCE,
                         CONF_MONTHLY_FEE: DEFAULT_MONTHLY_FEE,
@@ -368,10 +374,7 @@ class PstrykOsdCompareOptionsFlow(OptionsFlow):
                 return self.async_create_entry(title="", data=out)
 
         opts = self.config_entry.options
-        has_balanced = bool(
-            (self.config_entry.data.get(CONF_STAT_IDS) or {}).get("tb_imp")
-        )
-        basis_options = ["balanced", "gross"] if has_balanced else ["gross"]
+        basis_options = ["balanced", "gross"]
         adj_text = _json_default(opts.get(CONF_MONTHLY_ADJUSTMENTS))
         official_text = _json_default(opts.get(CONF_OFFICIAL_MONTHS))
         return self.async_show_form(
@@ -482,8 +485,9 @@ def _parse_adjustments(raw: Any) -> dict[str, float]:
     return out
 
 
-def _meter_label(meter: TauronMeterInfo) -> str:
-    name = meter.meter_name or meter.title or meter.meter_id
+def _meter_label(meter: OsdMeterInfo) -> str:
+    provider = PROVIDER_LABELS.get(meter.provider, meter.provider)
+    name = f"{provider}: {meter.meter_name or meter.title or meter.meter_id}"
     if meter.last_data:
         last = meter.last_data.date().isoformat()
         return f"{name} (ostatnie dane: {last})"

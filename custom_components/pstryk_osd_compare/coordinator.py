@@ -142,7 +142,7 @@ class CompareCoordinator(DataUpdateCoordinator[CompareData]):
         return self.entry.options.get(CONF_TAURON_BASIS, DEFAULT_TAURON_BASIS)
 
     @property
-    def stat_ids(self) -> dict[str, str | None]:
+    def stat_ids(self) -> dict[str, str | list[str] | None]:
         return dict(self.entry.data.get(CONF_STAT_IDS) or {})
 
     def _window_end(self) -> datetime:

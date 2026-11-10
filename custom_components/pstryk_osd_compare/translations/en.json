@@ -10,14 +10,14 @@
       },
       "source": {
         "title": "DSO / meter data source",
-        "description": "Choose a discovered Tauron AMIplus meter, or point to hourly statistics manually.\n\nIf nothing is listed: install [Tauron AMIplus]({tauron_url}) via HACS, enable generation + balanced + store statistics, wait for the first poll, then retry.",
+        "description": "Choose a discovered DSO meter (Tauron AMIplus, Enea, Energa) or point to hourly statistics manually (PGE, Stoen, P1 / wM-Bus reader, other).\n\nIf your meter is not listed: install the DSO integration (Tauron: [Tauron AMIplus]({tauron_url}) with generation + balanced + store statistics), wait for the first import, then retry. Per-DSO guide: [README]({docs_url}).",
         "data": {
           "source": "Source"
         }
       },
       "custom_stats": {
         "title": "Custom hourly statistics",
-        "description": "Select long-term statistics (sum) for grid import and export. Balanced series are optional.",
+        "description": "Select long-term statistics with a sum (energy sensors, kWh) for grid import and export. Several statistics per field are summed — e.g. tariff zones (G12/G12w: zone 1 + zone 2). Hourly energy is taken from the sum change, so regular meter sensors (P1, wM-Bus) work. Balanced series are optional, but must be given in pairs. Guide: [README]({docs_url}).",
         "data": {
           "import_stat": "Import (kWh)",
           "export_stat": "Export (kWh)",
@@ -46,7 +46,8 @@
       "invalid_auth": "Invalid Pstryk API key",
       "cannot_connect": "Cannot reach Pstryk API",
       "no_tauron_stats": "No usable DSO statistics found",
-      "invalid_contract_dates": "Contract end must be after start; start cannot be in the future"
+      "invalid_contract_dates": "Contract end must be after start; start cannot be in the future",
+      "invalid_custom_stats": "Select at least one import and one export statistic; balanced series must be given in pairs"
     },
     "abort": {
       "already_configured": "This meter is already configured",

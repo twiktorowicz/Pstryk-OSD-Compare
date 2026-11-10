@@ -3,7 +3,7 @@
 [![Validate](https://github.com/twiktorowicz/Pstryk-OSD-Compare/actions/workflows/validate.yaml/badge.svg)](https://github.com/twiktorowicz/Pstryk-OSD-Compare/actions/workflows/validate.yaml)
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories)
 
-Integracja Home Assistant (HACS), która porównuje **godzinowe dane licznika Pstryk** z **oficjalnymi danymi OSD** (Tauron AMIplus; inni operatorzy przez własne statystyki godzinowe) i wycenia obie strony **cenami Pstryka**. Pokazuje, ile kWh i złotych dzieli oba pomiary oraz jak różnica przekłada się na **depozyt prosumencki**.
+Integracja Home Assistant (HACS), która porównuje **godzinowe dane licznika Pstryk** z **oficjalnymi danymi OSD** (Tauron, Enea, Energa — wykrywane automatycznie; PGE, Stoen i inni — przez statystyki godzinowe z czytnika licznika) i wycenia obie strony **cenami Pstryka**. Pokazuje, ile kWh i złotych dzieli oba pomiary oraz jak różnica przekłada się na **depozyt prosumencki**.
 
 > English summary at the bottom.
 
@@ -19,9 +19,69 @@ Integracja Home Assistant (HACS), która porównuje **godzinowe dane licznika Ps
 |---|---|
 | Home Assistant **2025.1+** | testowane na 2026.x |
 | **Klucz API Pstryk** | aplikacja Pstryk → Ustawienia → API. Można użyć tego samego klucza co w Pstryk AiO (integracja nie czyta cudzych sekretów). |
-| **Godzinowe statystyki OSD** w Recorderze | zalecane: [Tauron AMIplus](https://github.com/skoczo/Home-Assistant-custom-components-Tauron-AMIplus) (HACS) z włączonymi opcjami **generation**, **balanced** i **store statistics**. Alternatywnie dowolne statystyki long-term (`sum`, kWh) poboru i oddania. |
+| **Godzinowe statystyki OSD** w Recorderze | z integracji Twojego operatora (Tauron / Enea / Energa) albo z lokalnego czytnika licznika — patrz [Obsługiwani operatorzy](#obsługiwani-operatorzy-osd). Wystarczą dowolne statystyki long-term z sumą (kWh) poboru i oddania. |
 
 Pstryk AiO **nie jest wymagany**.
+
+## Obsługiwani operatorzy (OSD)
+
+Integracja nie łączy się z portalami OSD sama — czyta **godzinowe statystyki** zapisane w Home Assistant przez integrację operatora albo przez lokalny czytnik licznika. Dlatego działa z każdym źródłem, które daje kWh godzina po godzinie.
+
+| OSD | Źródło danych | Wykrywanie | Uwagi |
+|---|---|---|---|
+| **Tauron Dystrybucja** | [Tauron AMIplus](https://github.com/skoczo/Home-Assistant-custom-components-Tauron-AMIplus) (HACS) | automatyczne | serie surowe i po bilansowaniu; uzupełnianie historii do 365 dni |
+| **Enea Operator** | [Enea Licznik](https://github.com/PanSzelescik/home-assistant-enea) (HACS) | automatyczne | statystyki `enea:{PPE}_energia_pobrana` / `_energia_oddana` |
+| **Energa-Operator** | [Energa My Meter API](https://github.com/ergo5/hass-energa-my-meter-api) lub fork [.NET](https://github.com/lkusinski/hass-energa-my-meter-api-net) (HACS) | automatyczne | `sensor.energa_{nr}_panel_energia_*`; strefy G12/G12w sumowane |
+| **PGE Dystrybucja** | czytnik wM-Bus (jeśli licznik nadaje) / usługa płatna PGE / [MojeIRE](https://mojeire.pl) (tylko CSV) | ręczne | brak publicznego API |
+| **Stoen Operator** | czytnik P1 (liczniki Gama 350 / 150) przez ESPHome | ręczne | potrzebny klucz szyfrowania z BOK Stoen |
+| inni / własny licznik | dowolny sensor energii `total_increasing` (kWh) | ręczne | |
+
+**Podstawa porównania** (Konfiguruj → *Podstawa OSD*): `balanced` = saldo godzinowe poboru i oddania — tak OSD rozlicza prosumentów net-billing. Gdy źródło nie ma osobnych serii po bilansowaniu (Enea, Energa, czytniki), integracja liczy saldo sama: `max(pobór − oddanie, 0)` i odwrotnie dla oddania. To jest dokładnie to, co publikuje Tauron (sprawdzone na danych), a dla danych już zbilansowanych przez OSD wynik się nie zmienia.
+
+### Tauron
+
+1. HACS → **Tauron AMIplus** → zainstaluj, restart HA.
+2. Dodaj integrację, zaloguj się danymi z eLicznika, włącz **generation**, **balanced** i **store statistics**.
+3. Poczekaj na pierwszy import (statystyki `tauron_importer:…`), potem dodaj *Pstryk OSD Compare* — licznik pojawi się na liście.
+
+### Enea
+
+1. Konto na [portalodbiorcy.operator.enea.pl](https://portalodbiorcy.operator.enea.pl/) z przypisanym licznikiem AMI.
+2. HACS → **Enea Licznik** → zainstaluj, restart HA, dodaj integrację (e-mail + hasło portalu).
+3. Dane za poprzedni dzień pojawiają się zwykle rano (integracja Enei odświeża co ~3,5 h). Historię wstecz pobierzesz usługą `enea.backfill`.
+4. Dodaj *Pstryk OSD Compare* → wybierz „Enea: {PPE}”.
+
+> Jeśli portal Enei nie opublikuje danych za dzień, integracja Enei po 3 dniach wpisuje zero. Taki dzień pokaże się jako duża różnica — po pojawieniu się danych uruchom `enea.backfill` dla tego dnia, a potem `pstryk_osd_compare.resync`.
+
+### Energa
+
+1. Konto w [Mój Licznik](https://mojlicznik.energa-operator.pl/) z przypisanym licznikiem.
+2. HACS → **Energa My Meter** (ergo5) lub fork .NET → zainstaluj, restart HA, dodaj integrację.
+3. Zaimportuj historię usługą `energa_mobile.fetch_history` (w UI: *Download History*) — statystyki `sensor.energa_{nr}_panel_energia_zuzycie` / `_produkcja` (taryfy strefowe: `_strefa_1` + `_strefa_2`).
+4. Dodaj *Pstryk OSD Compare* → wybierz „Energa: {nr}”. Przy taryfie G12/G12w obie strefy są sumowane automatycznie.
+
+### PGE
+
+PGE Dystrybucja nie udostępnia danych godzinowych przez API. Możliwości:
+
+- **Czytnik wM-Bus** (np. [wmbusmeters](https://github.com/wmbusmeters/wmbusmeters) + odbiornik 868 MHz albo ESPHome `wmbus`) — tylko jeśli licznik nadaje wM-Bus i masz klucz od OSD.
+- **Usługa płatna PGE** (dane profilowe) albo **MojeIRE / CSIRE** — eksport CSV. Do HA trzeba je zaimportować jako statystyki zewnętrzne (np. [Home Assistant Statistics Import](https://github.com/klausj1/homeassistant-statistics)).
+
+Potem: *Pstryk OSD Compare* → „Wskaż statystyki godzinowe ręcznie” → pobór / oddanie.
+
+### Stoen (Warszawa)
+
+1. Złóż w BOK Stoen Operator wniosek o aktywację portu **P1** i **klucz szyfrowania** (liczniki Gama 350 / 150).
+2. Czytnik na ESP32 z ESPHome (komponent `dlms_meter`, port P1: 115200 8N1, sygnał odwrócony) + `decryption_key`.
+3. Utwórz sensory energii poboru (A+) i oddania (A−) w kWh, `state_class: total_increasing`.
+4. *Pstryk OSD Compare* → „Wskaż statystyki godzinowe ręcznie”.
+
+### Własne statystyki (P1, wM-Bus, inne)
+
+- W każdym polu można wybrać **kilka statystyk** — są sumowane (np. strefy taryfy albo licznik wymieniony w trakcie umowy).
+- Godzinowe kWh liczone są ze **zmiany sumy**, więc pasują zwykłe sensory licznika (`total_increasing`) i statystyki zewnętrzne.
+- Serie po bilansowaniu są opcjonalne (tylko parami) — bez nich saldo liczone jest automatycznie.
+- Lokalny czytnik mierzy ten sam licznik co OSD, ale bez korekt i uzupełnień OSD — różnice rzędu dziesiątych procenta są normalne.
 
 ## Instalacja
 
@@ -37,8 +97,8 @@ Ręcznie:
 2. Pobierz **Pstryk OSD Compare** i zrestartuj Home Assistant.
 3. Ustawienia → Urządzenia i usługi → **Dodaj integrację** → *Pstryk OSD Compare*:
    1. klucz API Pstryk,
-   2. wybór wykrytego licznika Tauron (lub „własne statystyki”) — gdy lista jest pusta, kreator pokaże instrukcję instalacji Tauron AMIplus,
-   3. okres umowy Pstryk (start podpowiadany z API) i opcja uzupełniania brakującej historii Tauron (do 365 dni).
+   2. wybór wykrytego licznika (Tauron / Enea / Energa) lub „własne statystyki” (PGE, Stoen, czytnik P1 / wM-Bus),
+   3. okres umowy Pstryk (start podpowiadany z API) i — tylko dla Taurona — opcja uzupełniania brakującej historii (do 365 dni).
 
 Pierwsza synchronizacja pobiera dane od początku umowy (API Pstryk w paczkach po 5 dni) — może potrwać kilka minut. Kolejne co 3 h (opcja).
 
@@ -148,7 +208,8 @@ Struktura `custom_components/pstryk_osd_compare/`:
 | Plik | Rola |
 |---|---|
 | `pstryk_client.py` | API Pstryk (`unified-metrics`, godzinowo, paczki po 5 dni) |
-| `tauron_reader.py` | odczyt statystyk OSD z Recordera, wykrywanie liczników Tauron, backfill |
+| `tauron_reader.py` | odczyt statystyk OSD z Recordera, wykrywanie liczników (Tauron / Enea / Energa), backfill Tauron |
+| `osd_series.py` | czyste funkcje: rozpoznawanie serii OSD, godzinowe kWh ze zmiany sumy, sumowanie stref |
 | `store.py` | lokalny magazyn godzin (Pstryk + OSD) |
 | `calc.py` | czyste obliczenia: dopasowanie godzin, wyceny, okresy, księga depozytu (bez importów HA — testowane w `tests/`) |
 | `coordinator.py` | synchronizacja, statystyki zewnętrzne, ostrzeżenie `dso_stale` |
@@ -161,9 +222,9 @@ Wydanie: podbij `version` w `manifest.json`, utwórz tag `vX.Y.Z` — workflow `
 
 ## English summary
 
-Home Assistant custom integration (HACS) that compares hourly **Pstryk** meter data (Polish dynamic-tariff supplier) with official **DSO** statistics (Tauron AMIplus or any hourly long-term statistics), values both at Pstryk prices and tracks the impact on the prosumer **deposit**.
+Home Assistant custom integration (HACS) that compares hourly **Pstryk** meter data (Polish dynamic-tariff supplier) with official **DSO** statistics (auto-discovered: Tauron AMIplus, Enea, Energa; or any hourly long-term statistics, e.g. P1 / wM-Bus readers for PGE and Stoen), values both at Pstryk prices and tracks the impact on the prosumer **deposit**.
 
-- **Requirements:** HA 2025.1+, Pstryk API key, hourly DSO statistics (Tauron AMIplus with *generation*, *balanced* and *store statistics* enabled).
+- **Requirements:** HA 2025.1+, Pstryk API key, hourly DSO statistics from the DSO integration (Tauron AMIplus, Enea Licznik, Energa My Meter) or a local meter reader. See *Obsługiwani operatorzy* for per-DSO setup.
 - **Install:** use the My Home Assistant button above, or add this repo as a custom repository (Integration) in HACS (HA ≤ 2026.10) or Settings → Marketplace (HA 2026.11+) → restart → add *Pstryk OSD Compare*.
 - **Entities:** fixed IDs `sensor.osd_*`, `date.osd_dzien_analizy`, invoice (FV) form entities `select.osd_fv_miesiac`, `number.osd_fv_*`, `text.osd_fv_numer`, `button.osd_fv_zapisz|usun`; external statistics `pstryk_osd_compare:<meter>_<metric>`.
 - **Invoices:** enter monthly invoice values via the dashboard form or `pstryk_osd_compare.set_official_month`; corrections apply equally to both sides, so the deposit delta reflects metering differences only.
