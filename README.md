@@ -11,7 +11,7 @@ Integracja Home Assistant (HACS), która porównuje **godzinowe dane licznika Ps
 
 - Pstryk rozlicza Cię na podstawie własnego licznika (BleBox), OSD (np. Tauron) — na podstawie licznika operatora. Wartości różnią się, zwykle na eksporcie.
 - Integracja dopasowuje godzina do godziny oba źródła, wycenia je tymi samymi cenami Pstryka i liczy depozyt „tak, jak gdyby rozliczać z danych OSD”.
-- Wynik: Δ = **Pstryk − Tauron** w kWh i PLN, miesiąc po miesiącu, plus wpływ na saldo depozytu (rozliczone jak w aplikacji Pstryk oraz „na dziś”).
+- Wynik: Δ = **Pstryk − OSD** w kWh i PLN, miesiąc po miesiącu, plus wpływ na saldo depozytu (rozliczone jak w aplikacji Pstryk oraz „na dziś”).
 
 ## Wymagania
 
@@ -124,13 +124,13 @@ Jedno urządzenie **Pstryk OSD Compare**. Identyfikatory są stałe (niezależne
 |---|---|
 | `sensor.osd_ostatni_sync`, `sensor.osd_dane_do`, `sensor.osd_pokrycie` | stan danych: ostatnia synchronizacja, ostatnia godzina z OSD, % dopasowanych godzin |
 | `sensor.osd_miesiace` | wiersz na miesiąc (kWh P/T, depozyty, Δ, status `FV` / `szacunek` / `otwarty`) + `totals`; atrybut `statistics` zawiera ID statystyk do wykresów |
-| `sensor.osd_depozyt_pstryk` / `_tauron` / `_roznica` | saldo depozytu na dziś (z bieżącym miesiącem) |
-| `sensor.osd_depozyt_pstryk_rozliczony` / `_tauron_rozliczony` / `_roznica_rozliczona` | saldo do ostatniej rozliczonej faktury (jak w aplikacji) |
+| `sensor.osd_depozyt_pstryk` / `_osd` / `_roznica` | saldo depozytu na dziś (z bieżącym miesiącem) |
+| `sensor.osd_depozyt_pstryk_rozliczony` / `_osd_rozliczony` / `_roznica_rozliczona` | saldo do ostatniej rozliczonej faktury (jak w aplikacji) |
 | `sensor.osd_{okres}_diff_{import,export,buy_value,sell_value,net_value}` | Δ dla `current_month`, `previous_month`, `current_year`, `previous_day` |
 | `sensor.osd_rozbicie_dzienne`, `date.osd_dzien_analizy`, `sensor.osd_wybrany_dzien` | rozbicie dzienne i godzinowe wybranego dnia |
 | `select.osd_fv_miesiac`, `number.osd_fv_*`, `text.osd_fv_numer`, `button.osd_fv_zapisz` / `_usun` | formularz FV (kategoria *Konfiguracja*) |
 
-Statystyki zewnętrzne `pstryk_osd_compare:<licznik>_<metryka>` (godzinowe, z sumą) — do kart `statistics-graph` i panelu Energia: `pstryk_import`, `tauron_import`, `pstryk_export`, `tauron_export`, wartości PLN i Δ.
+Statystyki zewnętrzne `pstryk_osd_compare:<licznik>_<metryka>` (godzinowe, z sumą) — do kart `statistics-graph` i panelu Energia: `pstryk_import`, `osd_import`, `pstryk_export`, `osd_export`, wartości PLN i Δ.
 
 Przy drugim wpisie (drugi licznik) HA doda do identyfikatorów sufiks `_2`.
 
@@ -152,11 +152,11 @@ API Pstryka nie udostępnia faktur ani salda depozytu, a FV zawierają pozycje, 
 
 4. **FV zapisz** — integracja przeładuje się (kilka sekund). **FV usuń** kasuje wpis dla wybranego miesiąca.
 
-Jak FV wpływa na wyliczenia: różnica `FV − model z API` traktowana jest jako wspólna korekta **obu stron** (Pstryk i Tauron), więc Δ depozytu wynika wyłącznie z różnic pomiarowych. Ta sama operacja jest dostępna jako usługa `pstryk_osd_compare.set_official_month` (także masowo przez `months_json`).
+Jak FV wpływa na wyliczenia: różnica `FV − model z API` traktowana jest jako wspólna korekta **obu stron** (Pstryk i OSD), więc Δ depozytu wynika wyłącznie z różnic pomiarowych. Ta sama operacja jest dostępna jako usługa `pstryk_osd_compare.set_official_month` (także masowo przez `months_json`).
 
 ### Model depozytu
 
-Dla każdej dopasowanej godziny, osobno dla kWh Pstryka i kWh Tauronu (te same ceny Pstryka):
+Dla każdej dopasowanej godziny, osobno dla kWh Pstryka i kWh OSD (te same ceny Pstryka):
 
 - **wpływ** miesiąca = Σ eksport × cena sprzedaży,
 - **faktura** miesiąca = Σ koszt poboru (+ opcjonalna opłata miesięczna),

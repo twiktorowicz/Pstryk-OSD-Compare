@@ -16,6 +16,19 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS = ["sensor", "date", "select", "number", "text", "button"]
 
 
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate old config entries."""
+    if entry.version > 1:
+        return False
+    if entry.minor_version < 2:
+        from .migration import async_migrate_v1_2
+
+        await async_migrate_v1_2(hass, entry)
+        hass.config_entries.async_update_entry(entry, minor_version=2)
+        _LOGGER.info("Migrated %s to 1.2", entry.title)
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up from a config entry."""
     from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady

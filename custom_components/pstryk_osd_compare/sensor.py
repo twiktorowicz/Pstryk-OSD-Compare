@@ -62,13 +62,13 @@ async def async_setup_entry(
             DailyBreakdownSensor(coordinator, entry),
             SelectedDayHourlySensor(coordinator, entry),
             DepositSensor(coordinator, entry, "deposit_pstryk", "Depozyt Pstryk"),
-            DepositSensor(coordinator, entry, "deposit_tauron", "Depozyt Tauron"),
+            DepositSensor(coordinator, entry, "deposit_tauron", "Depozyt OSD"),
             DepositDiffSensor(coordinator, entry),
             DepositSettledSensor(
                 coordinator, entry, "deposit_pstryk_settled", "Depozyt Pstryk rozliczony"
             ),
             DepositSettledSensor(
-                coordinator, entry, "deposit_tauron_settled", "Depozyt Tauron rozliczony"
+                coordinator, entry, "deposit_tauron_settled", "Depozyt OSD rozliczony"
             ),
             DepositSettledDiffSensor(coordinator, entry),
             MonthlySensor(coordinator, entry),
@@ -189,7 +189,7 @@ class LastSyncSensor(CompareSensorBase):
             return {}
         return {
             "pstryk_hours": d.hours_pstryk,
-            "tauron_hours": d.hours_tauron,
+            "osd_hours": d.hours_tauron,
             "matched_hours": d.hours_matched,
             "errors": d.errors,
         }
@@ -450,9 +450,9 @@ class MonthlySensor(CompareSensorBase):
                 metric: statistic_id_for(meter, metric)
                 for metric in (
                     "pstryk_import",
-                    "tauron_import",
+                    "osd_import",
                     "pstryk_export",
-                    "tauron_export",
+                    "osd_export",
                 )
             },
         }

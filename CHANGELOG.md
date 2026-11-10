@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.2.0
+
+### Zmiana nazw — sprawdź swój dashboard
+
+Nazwy nie wskazują już Taurona — strona OSD nazywa się tak samo dla każdego operatora. **Integracja przenosi wszystko sama** przy pierwszym starcie po aktualizacji (historia encji zostaje; statystyki wykresów są odtwarzane w całości z danych integracji w ciągu kilku minut po restarcie).
+
+| Było | Jest |
+|---|---|
+| `sensor.osd_depozyt_tauron` | `sensor.osd_depozyt_osd` |
+| `sensor.osd_depozyt_tauron_rozliczony` | `sensor.osd_depozyt_osd_rozliczony` |
+| `pstryk_osd_compare:…_tauron_import` | `pstryk_osd_compare:…_osd_import` |
+| `pstryk_osd_compare:…_tauron_export` | `pstryk_osd_compare:…_osd_export` |
+| `…_tauron_buy_value` / `_sell_value` / `_invoice_cost` | `…_osd_buy_value` / `_sell_value` / `_invoice_cost` |
+| atrybuty `tauron_import`, `tauron_export`, … `hours_tauron_only`, `tauron_hours` | `osd_import`, `osd_export`, … `hours_osd_only`, `osd_hours` |
+
+**Co zrobić:** dashboardu wklejonego ręcznie HA nie poprawi sam. Otwórz pulpit → ⋮ → Edytuj → ⋮ → **Edytor surowej konfiguracji** i zamień:
+- `osd_depozyt_tauron` → `osd_depozyt_osd`,
+- `_tauron_import` → `_osd_import`, `_tauron_export` → `_osd_export` (i inne `_tauron_` w identyfikatorach statystyk),
+- w szablonach markdown: `tauron_import` → `osd_import` itd.
+
+Jeśli samodzielnie zmieniłeś `entity_id` tych sensorów, integracja go nie rusza. Aktualny przykład: [`dashboards/compare_dashboard.yaml`](https://github.com/twiktorowicz/Pstryk-OSD-Compare/blob/main/dashboards/compare_dashboard.yaml).
+
+### Inne
+
+- Etykiety: „Depozyt OSD”, „Depozyt OSD rozliczony”; w statystykach i dashboardzie „OSD” zamiast „Tauron”.
+
+---
+
+**EN:** Operator-neutral names: `tauron_*` entity IDs, statistic IDs and attributes are now `osd_*` (table above). Migration runs automatically on first start (entity history kept; chart statistics are rebuilt from the integration's data within minutes). Manually pasted dashboards must be updated: replace `osd_depozyt_tauron` → `osd_depozyt_osd` and `_tauron_` → `_osd_` in statistic IDs and templates.
+
 ## v1.1.0
 
 ### Nowe

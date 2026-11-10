@@ -93,19 +93,19 @@ def hour_metrics(rec: dict[str, Any], basis: str) -> dict[str, float]:
     return {
         "pstryk_import": p_imp,
         "pstryk_export": p_exp,
-        "tauron_import": t_imp,
-        "tauron_export": t_exp,
+        "osd_import": t_imp,
+        "osd_export": t_exp,
         "diff_import": p_imp - t_imp,
         "diff_export": p_exp - t_exp,
         "pstryk_buy_value": pstryk_buy,
         "pstryk_sell_value": pstryk_sell,
-        "tauron_buy_value": tauron_buy,
-        "tauron_sell_value": tauron_sell,
+        "osd_buy_value": tauron_buy,
+        "osd_sell_value": tauron_sell,
         "diff_buy_value": pstryk_buy - tauron_buy,
         "diff_sell_value": pstryk_sell - tauron_sell,
         "diff_net_value": (pstryk_sell - tauron_sell) - (pstryk_buy - tauron_buy),
         "pstryk_invoice_cost": pstryk_invoice,
-        "tauron_invoice_cost": tauron_invoice,
+        "osd_invoice_cost": tauron_invoice,
         "diff_invoice_cost": pstryk_invoice - tauron_invoice,
     }
 
@@ -198,7 +198,7 @@ def summarize(
     hours_total = 0
     hours_matched = 0
     hours_pstryk_only = 0
-    hours_tauron_only = 0
+    hours_osd_only = 0
     totals = {m: 0.0 for m in METRICS}
 
     for ts in _iter_hour_starts(start_ts, end_ts):
@@ -216,30 +216,30 @@ def summarize(
         elif p:
             hours_pstryk_only += 1
         elif t:
-            hours_tauron_only += 1
+            hours_osd_only += 1
 
     return {
         "hours_total": hours_total,
         "hours_matched": hours_matched,
         "hours_pstryk_only": hours_pstryk_only,
-        "hours_tauron_only": hours_tauron_only,
+        "hours_osd_only": hours_osd_only,
         "pstryk_import": _round_kwh(totals["pstryk_import"]),
-        "tauron_import": _round_kwh(totals["tauron_import"]),
+        "osd_import": _round_kwh(totals["osd_import"]),
         "diff_import": _round_kwh(totals["diff_import"]),
-        "diff_import_pct": _pct(totals["diff_import"], totals["tauron_import"]),
+        "diff_import_pct": _pct(totals["diff_import"], totals["osd_import"]),
         "pstryk_export": _round_kwh(totals["pstryk_export"]),
-        "tauron_export": _round_kwh(totals["tauron_export"]),
+        "osd_export": _round_kwh(totals["osd_export"]),
         "diff_export": _round_kwh(totals["diff_export"]),
-        "diff_export_pct": _pct(totals["diff_export"], totals["tauron_export"]),
+        "diff_export_pct": _pct(totals["diff_export"], totals["osd_export"]),
         "pstryk_buy_value": _round_pln(totals["pstryk_buy_value"]),
-        "tauron_buy_value": _round_pln(totals["tauron_buy_value"]),
+        "osd_buy_value": _round_pln(totals["osd_buy_value"]),
         "diff_buy_value": _round_pln(totals["diff_buy_value"]),
         "pstryk_sell_value": _round_pln(totals["pstryk_sell_value"]),
-        "tauron_sell_value": _round_pln(totals["tauron_sell_value"]),
+        "osd_sell_value": _round_pln(totals["osd_sell_value"]),
         "diff_sell_value": _round_pln(totals["diff_sell_value"]),
         "diff_net_value": _round_pln(totals["diff_net_value"]),
         "pstryk_invoice_cost": _round_pln(totals["pstryk_invoice_cost"]),
-        "tauron_invoice_cost": _round_pln(totals["tauron_invoice_cost"]),
+        "osd_invoice_cost": _round_pln(totals["osd_invoice_cost"]),
         "diff_invoice_cost": _round_pln(totals["diff_invoice_cost"]),
         "complete": hours_matched == hours_total and hours_total > 0,
     }
@@ -269,10 +269,10 @@ def daily_breakdown(
                 "date": day.isoformat(),
                 "hours_matched": s["hours_matched"],
                 "pstryk_import": s["pstryk_import"],
-                "tauron_import": s["tauron_import"],
+                "osd_import": s["osd_import"],
                 "diff_import": s["diff_import"],
                 "pstryk_export": s["pstryk_export"],
-                "tauron_export": s["tauron_export"],
+                "osd_export": s["osd_export"],
                 "diff_export": s["diff_export"],
                 "diff_buy_value": s["diff_buy_value"],
                 "diff_sell_value": s["diff_sell_value"],
@@ -310,10 +310,10 @@ def hourly_breakdown(
                     "matched": True,
                     "utc_offset": utc_offset,
                     "p_imp": _round_kwh(m["pstryk_import"]),
-                    "T_imp": _round_kwh(m["tauron_import"]),
+                    "T_imp": _round_kwh(m["osd_import"]),
                     "d_imp": _round_kwh(m["diff_import"]),
                     "p_exp": _round_kwh(m["pstryk_export"]),
-                    "T_exp": _round_kwh(m["tauron_export"]),
+                    "T_exp": _round_kwh(m["osd_export"]),
                     "d_exp": _round_kwh(m["diff_export"]),
                     "buy": rec.get("buy"),
                     "sell": rec.get("sell"),
@@ -465,12 +465,12 @@ def month_model_totals(
             m = hour_metrics(rec, basis)
             tot["p_inflow"] += m["pstryk_sell_value"]
             tot["p_invoice"] += m["pstryk_invoice_cost"]
-            tot["t_inflow"] += m["tauron_sell_value"]
-            tot["t_invoice"] += m["tauron_invoice_cost"]
+            tot["t_inflow"] += m["osd_sell_value"]
+            tot["t_invoice"] += m["osd_invoice_cost"]
             tot["p_imp"] += m["pstryk_import"]
-            tot["t_imp"] += m["tauron_import"]
+            tot["t_imp"] += m["osd_import"]
             tot["p_exp"] += m["pstryk_export"]
-            tot["t_exp"] += m["tauron_export"]
+            tot["t_exp"] += m["osd_export"]
         out[f"{year:04d}-{month:02d}"] = tot
         if month == 12:
             year, month = year + 1, 1

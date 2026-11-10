@@ -12,14 +12,10 @@ from homeassistant.core import HomeAssistant
 
 from .calc import cumulative_series
 from .const import DOMAIN, METRICS, STATS_BATCH
+from .osd_series import statistic_id_for
 
 _LOGGER = logging.getLogger(__name__)
 UTC = timezone.utc
-
-
-def statistic_id_for(meter_slug: str, metric: str) -> str:
-    slug = "".join(c if c.isalnum() or c == "_" else "_" for c in meter_slug.lower())
-    return f"{DOMAIN}:{slug}_{metric}"
 
 
 async def async_write_statistics(

@@ -88,13 +88,13 @@ def test_hour_metrics_both_directions():
     m = hour_metrics(rec, BASIS_GROSS)
     assert m["pstryk_import"] == pytest.approx(0.048)
     assert m["pstryk_export"] == pytest.approx(0.21)
-    assert m["tauron_import"] == pytest.approx(0.04)
+    assert m["osd_import"] == pytest.approx(0.04)
     assert m["diff_import"] == pytest.approx(0.008)
     assert m["pstryk_buy_value"] == pytest.approx(0.048 * 1.27297)
     assert m["pstryk_sell_value"] == pytest.approx(0.21 * 1.0678)
     m_bal = hour_metrics(rec, BASIS_BALANCED)
-    assert m_bal["tauron_import"] == pytest.approx(0.0)
-    assert m_bal["tauron_export"] == pytest.approx(0.162)
+    assert m_bal["osd_import"] == pytest.approx(0.0)
+    assert m_bal["osd_export"] == pytest.approx(0.162)
 
 
 def test_cumulative_series_skips_unmatched():
@@ -134,23 +134,23 @@ def test_october_fixture_gross_matches_reference():
     s = summarize(hours, BASIS_GROSS, start_ts, end_ts)
     assert s["hours_matched"] == 721
     assert s["pstryk_import"] == pytest.approx(523.869, abs=0.01)
-    assert s["tauron_import"] == pytest.approx(517.966, abs=0.01)
+    assert s["osd_import"] == pytest.approx(517.966, abs=0.01)
     assert s["pstryk_export"] == pytest.approx(530.403, abs=0.01)
-    assert s["tauron_export"] == pytest.approx(375.643, abs=0.01)
+    assert s["osd_export"] == pytest.approx(375.643, abs=0.01)
     assert s["pstryk_buy_value"] == pytest.approx(344.39, abs=0.05)
-    assert s["tauron_buy_value"] == pytest.approx(353.06, abs=0.05)
+    assert s["osd_buy_value"] == pytest.approx(353.06, abs=0.05)
     assert s["pstryk_sell_value"] == pytest.approx(773.48, abs=0.05)
-    assert s["tauron_sell_value"] == pytest.approx(604.04, abs=0.05)
+    assert s["osd_sell_value"] == pytest.approx(604.04, abs=0.05)
 
 
 def test_october_fixture_balanced():
     hours = load_october_hours()
     start_ts, end_ts = period_bounds("month", datetime(2026, 10, 15, tzinfo=TZ))
     s = summarize(hours, BASIS_BALANCED, start_ts, end_ts)
-    assert s["tauron_import"] == pytest.approx(509.510, abs=0.01)
-    assert s["tauron_export"] == pytest.approx(367.187, abs=0.01)
-    assert s["tauron_buy_value"] == pytest.approx(344.27, abs=0.05)
-    assert s["tauron_sell_value"] == pytest.approx(597.63, abs=0.05)
+    assert s["osd_import"] == pytest.approx(509.510, abs=0.01)
+    assert s["osd_export"] == pytest.approx(367.187, abs=0.01)
+    assert s["osd_buy_value"] == pytest.approx(344.27, abs=0.05)
+    assert s["osd_sell_value"] == pytest.approx(597.63, abs=0.05)
 
 
 def _model_month(
@@ -351,7 +351,7 @@ def test_fixed_fee_and_tauron_invoice_oct31():
         "tb_exp": 0.0,
     }
     m = hour_metrics(rec, BASIS_GROSS)
-    assert m["tauron_invoice_cost"] == pytest.approx(fixed + 1.0 * buy, abs=1e-9)
+    assert m["osd_invoice_cost"] == pytest.approx(fixed + 1.0 * buy, abs=1e-9)
     assert m["pstryk_invoice_cost"] == pytest.approx(api_cost, abs=1e-9)
 
 

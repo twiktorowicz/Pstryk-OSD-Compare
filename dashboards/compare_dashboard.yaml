@@ -1,7 +1,7 @@
 # Pstryk OSD Compare — example dashboard (2 views: "osd" + subview "osd-fv" with the FV form).
 # Before pasting: replace YOUR_METER_ID with your meter slug. Exact statistic IDs are listed in
 # Developer tools → States → sensor.osd_miesiace → attribute "statistics".
-# Only built-in cards. Δ = Pstryk − Tauron everywhere.
+# Only built-in cards. Δ = Pstryk − OSD everywhere (same for every DSO).
 views:
   - title: OSD Compare
     path: osd
@@ -17,14 +17,14 @@ views:
           - type: entities
             entities:
               - entity: sensor.osd_dane_do
-                name: Dane Taurona do
+                name: Dane OSD do
               - entity: sensor.osd_pokrycie
                 name: Pokrycie godzin (od umowy)
               - entity: sensor.osd_ostatni_sync
                 name: Ostatnia synchronizacja
           - type: markdown
             content: >-
-              **Δ = Pstryk − Tauron.** Plus oznacza, że Pstryk policzył więcej.
+              **Δ = Pstryk − OSD.** Plus oznacza, że Pstryk policzył więcej.
               Pomiar OSD: {{ state_attr('sensor.osd_miesiace','basis') or 'balanced' }}.
               Rozliczone do: **{{ state_attr('sensor.osd_miesiace','settled_through') or '—' }}**
               (Pstryk wystawia FV zwykle 4.–6. dnia miesiąca; wpisana FV od razu przesuwa tę datę).
@@ -40,16 +40,16 @@ views:
                 label: Rozliczony (jak w aplikacji Pstryk)
               - entity: sensor.osd_depozyt_pstryk_rozliczony
                 name: Depozyt wg Pstryka
-              - entity: sensor.osd_depozyt_tauron_rozliczony
-                name: Depozyt, gdyby liczyć z pomiarów Taurona
+              - entity: sensor.osd_depozyt_osd_rozliczony
+                name: Depozyt, gdyby liczyć z pomiarów OSD
               - entity: sensor.osd_depozyt_roznica_rozliczona
                 name: Różnica przez pomiary
               - type: section
                 label: Na dziś (otwarty miesiąc = szacunek)
               - entity: sensor.osd_depozyt_pstryk
                 name: Depozyt wg Pstryka
-              - entity: sensor.osd_depozyt_tauron
-                name: Depozyt wg pomiarów Taurona
+              - entity: sensor.osd_depozyt_osd
+                name: Depozyt wg pomiarów OSD
               - entity: sensor.osd_depozyt_roznica
                 name: Różnica przez pomiary
 
@@ -66,7 +66,7 @@ views:
               {%- set st = {'fv':'FV','estimate':'szacunek','open':'otwarty'} -%}
               {%- macro n(x, d=1) -%}{{ '—' if x is none else ('%.' ~ d ~ 'f') | format(x) }}{%- endmacro -%}
               {%- macro s(x, d=1) -%}{{ '—' if x is none else ('%+.' ~ d ~ 'f') | format(x) }}{%- endmacro -%}
-              | Miesiąc | Status | Godz. | Import P | Import T | Δ | Eksport P | Eksport T | Δ (%) | Depozyt P | Depozyt T | Δ depozytu |
+              | Miesiąc | Status | Godz. | Import P | Import OSD | Δ | Eksport P | Eksport OSD | Δ (%) | Depozyt P | Depozyt OSD | Δ depozytu |
               |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
               {% for r in rows -%}
               | {{ r.month }} | {{ st.get(r.status, r.status) }} | {{ r.hours }} | {{ n(r.imp_p) }} | {{ n(r.imp_t) }} | {{ s(r.d_imp) }} | {{ n(r.exp_p) }} | {{ n(r.exp_t) }} | {{ s(r.d_exp) }} ({{ s(r.d_exp_pct) }}%) | {{ n(r.dep_p, 2) }} | {{ n(r.dep_t, 2) }} | **{{ s(r.d_dep, 2) }}** ({{ s(r.d_dep_month, 2) }}) |
@@ -98,8 +98,8 @@ views:
             entities:
               - entity: pstryk_osd_compare:YOUR_METER_ID_pstryk_import
                 name: Pstryk
-              - entity: pstryk_osd_compare:YOUR_METER_ID_tauron_import
-                name: Tauron
+              - entity: pstryk_osd_compare:YOUR_METER_ID_osd_import
+                name: OSD
 
       - type: grid
         cards:
@@ -115,8 +115,8 @@ views:
             entities:
               - entity: pstryk_osd_compare:YOUR_METER_ID_pstryk_export
                 name: Pstryk
-              - entity: pstryk_osd_compare:YOUR_METER_ID_tauron_export
-                name: Tauron
+              - entity: pstryk_osd_compare:YOUR_METER_ID_osd_export
+                name: OSD
 
       - type: grid
         cards:
@@ -131,7 +131,7 @@ views:
                 name: Δ wartości energii w dniu (PLN)
           - type: markdown
             content: |
-              | Godz | Import P | Import T | Δ | Eksport P | Eksport T | Δ | Δ zł |
+              | Godz | Import P | Import OSD | Δ | Eksport P | Eksport OSD | Δ | Δ zł |
               |---|---:|---:|---:|---:|---:|---:|---:|
               {% for h in state_attr('sensor.osd_wybrany_dzien','hours') or [] -%}
               | {{ h.hour }} | {{ h.p_imp }} | {{ h.T_imp }} | {{ h.d_imp }} | {{ h.p_exp }} | {{ h.T_exp }} | {{ h.d_exp }} | {{ ((h.d_sell_value or 0) - (h.d_buy_value or 0)) | round(2) }} |

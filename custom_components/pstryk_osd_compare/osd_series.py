@@ -13,6 +13,8 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
+from .const import DOMAIN
+
 PROVIDER_TAURON = "tauron"
 PROVIDER_ENEA = "enea"
 PROVIDER_ENERGA = "energa"
@@ -45,6 +47,11 @@ _ENERGA_KEY = {
 }
 
 UTC = timezone.utc
+
+
+def statistic_id_for(meter_slug: str, metric: str) -> str:
+    slug = "".join(c if c.isalnum() or c == "_" else "_" for c in meter_slug.lower())
+    return f"{DOMAIN}:{slug}_{metric}"
 
 
 def as_id_list(value: str | list[str] | tuple[str, ...] | None) -> list[str]:

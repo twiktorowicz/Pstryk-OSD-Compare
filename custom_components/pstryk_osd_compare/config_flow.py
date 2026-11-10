@@ -60,6 +60,7 @@ class PstrykOsdCompareConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow."""
 
     VERSION = 1
+    MINOR_VERSION = 2
 
     def __init__(self) -> None:
         self._api_key: str | None = None

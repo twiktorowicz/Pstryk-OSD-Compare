@@ -524,7 +524,7 @@ class CompareCoordinator(DataUpdateCoordinator[CompareData]):
                     "month": f"{y:04d}-{m:02d}",
                     "hours_total": ht,
                     "pstryk_hours": pe,
-                    "tauron_hours": te,
+                    "osd_hours": te,
                     "matched_hours": me,
                 }
             )
