@@ -8,7 +8,17 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable, Mapping
 
-from .const import BASIS_BALANCED, BASIS_GROSS, DEFAULT_SETTLEMENT_DAY, METRICS, TZ
+from .const import (
+    BASIS_BALANCED,
+    BASIS_GROSS,
+    DEFAULT_SETTLEMENT_DAY,
+    METRICS,
+    SHIELD_GROSS_ENERGY_SERVICE,
+    SHIELD_LAST_OPEN_YEAR,
+    SHIELD_RULES,
+    TZ,
+    VAT_RATE,
+)
 
 UTC = timezone.utc
 
@@ -407,11 +417,62 @@ def _month_start_end(year: int, month: int) -> tuple[int, int]:
     )
 
 
+def default_shield_years(contract_start: date) -> list[int]:
+    """Tarcza years assumed on: from the contract year; rules after SHIELD_LAST_OPEN_YEAR
+    only for contracts started by then."""
+    return [
+        y
+        for y in sorted(SHIELD_RULES)
+        if y >= contract_start.year
+        and (y <= SHIELD_LAST_OPEN_YEAR or contract_start.year <= SHIELD_LAST_OPEN_YEAR)
+    ]
+
+
+def parse_shield_years(raw: Any, contract_start: date) -> frozenset[int]:
+    """Option value (list of years) → known rule years; None → defaults."""
+    if raw is None:
+        return frozenset(default_shield_years(contract_start))
+    out: set[int] = set()
+    for val in raw if isinstance(raw, (list, tuple, set, frozenset)) else ():
+        try:
+            year = int(val)
+        except (TypeError, ValueError):
+            continue
+        if year in SHIELD_RULES:
+            out.add(year)
+    return frozenset(out)
+
+
+def shield_discount(
+    year: int,
+    kwh: float,
+    energy_net: float,
+    service_net: float,
+    years: Iterable[int],
+) -> tuple[float, float | None]:
+    """Monthly Tarcza Pstryk discount (gross PLN) and the average basis price (zł/kWh).
+
+    energy_net / service_net: Σ kWh × price_net / service_price over the month.
+    """
+    rule = SHIELD_RULES.get(year)
+    if rule is None or year not in set(years) or kwh <= 0:
+        return 0.0, None
+    limit, rule_basis = rule
+    if rule_basis == SHIELD_GROSS_ENERGY_SERVICE:
+        cost = (energy_net + service_net) * (1 + VAT_RATE)
+        discount = cost - limit * kwh
+    else:
+        cost = energy_net
+        discount = (cost - limit * kwh) * (1 + VAT_RATE)
+    return max(discount, 0.0), cost / kwh
+
+
 @dataclass(frozen=True)
 class MonthCorrection:
     """Non-measurement items for one month, applied equally to both sides."""
 
-    extra_invoice: float = 0.0  # FV.invoice - (pstryk_model_invoice + monthly_fee)
+    # FV.invoice (after Tarcza / wallet) - (model invoice - model Tarcza + monthly_fee)
+    extra_invoice: float = 0.0
     extra_inflow: float = 0.0  # FV.inflow - pstryk_model_inflow (usually ~0)
     bonus: float = 0.0  # FV loyalty bonus (distribution + excise); informational, part of deposit_used
     # FV fact: "Rozliczenie depozytu" + "bonus lojalnościowy" (both drain the deposit);
@@ -419,6 +480,8 @@ class MonthCorrection:
     deposit_used: float | None = None
     status: str = "estimate"  # "fv" | "estimate"
     fv_number: str | None = None
+    shield: float | None = None  # FV "Rabat – Tarcza Pstryk" (informational)
+    wallet: float = 0.0  # FV Portfel Pstryk deduction (informational, inside FV.invoice)
 
 
 def month_model_totals(
@@ -426,8 +489,14 @@ def month_model_totals(
     basis: str,
     until_ts: int,
     contract_start: date | None = None,
+    shield_years: Iterable[int] = (),
 ) -> dict[str, dict[str, Any]]:
-    """YYYY-MM → hourly-model sums over matched hours up to until_ts (inclusive)."""
+    """YYYY-MM → hourly-model sums over matched hours up to until_ts (inclusive).
+
+    ``p_shield`` / ``t_shield``: Tarcza Pstryk discount from Pstryk / OSD kWh
+    (month-to-date for the open month).
+    """
+    shield_years = frozenset(shield_years)
     if not hours:
         return {}
     if contract_start is None:
@@ -454,6 +523,8 @@ def month_model_totals(
             "hours_expected": 0,
             "month_end_ts": m_end,
         }
+        # Tarcza basis: kWh and Σ kWh × net price, only hours that carry net prices
+        sh = {f"{s}_{k}": 0.0 for s in ("p", "t") for k in ("kwh", "energy", "service")}
         for ts in _iter_hour_starts(m_start, m_end):
             if ts > until_ts:
                 break
@@ -471,6 +542,23 @@ def month_model_totals(
             tot["t_imp"] += m["osd_import"]
             tot["p_exp"] += m["pstryk_export"]
             tot["t_exp"] += m["osd_export"]
+            e_net = rec.get("e_net")
+            if e_net is not None:
+                svc = float(rec.get("svc") or 0.0)
+                for side, kwh in (("p", m["pstryk_import"]), ("t", m["osd_import"])):
+                    sh[f"{side}_kwh"] += kwh
+                    sh[f"{side}_energy"] += kwh * float(e_net)
+                    sh[f"{side}_service"] += kwh * svc
+        for side in ("p", "t"):
+            disc, avg = shield_discount(
+                year,
+                sh[f"{side}_kwh"],
+                sh[f"{side}_energy"],
+                sh[f"{side}_service"],
+                shield_years,
+            )
+            tot[f"{side}_shield"] = disc
+            tot[f"{side}_shield_avg"] = avg
         out[f"{year:04d}-{month:02d}"] = tot
         if month == 12:
             year, month = year + 1, 1
@@ -492,7 +580,9 @@ def build_corrections(
         if fv:
             extra_invoice = 0.0
             if fv.get("invoice") is not None:
-                extra_invoice = float(fv["invoice"]) - (m["p_invoice"] + monthly_fee)
+                extra_invoice = float(fv["invoice"]) - (
+                    m["p_invoice"] - m.get("p_shield", 0.0) + monthly_fee
+                )
             extra_inflow = 0.0
             if fv.get("inflow") is not None:
                 extra_inflow = float(fv["inflow"]) - m["p_inflow"]
@@ -507,6 +597,8 @@ def build_corrections(
                 deposit_used=used,
                 status="fv",
                 fv_number=str(fv["number"]) if fv.get("number") else None,
+                shield=float(fv["shield"]) if fv.get("shield") is not None else None,
+                wallet=float(fv.get("wallet") or 0.0),
             )
         else:
             out[month] = MonthCorrection(status="estimate")
@@ -537,7 +629,10 @@ def deposit_ledger(
         m = model[month]
         c = corrections.get(month) or MonthCorrection()
         inflow = m[f"{src}_inflow"] + c.extra_inflow
-        invoice = m[f"{src}_invoice"] + float(cfg.monthly_fee) + c.extra_invoice
+        shield = float(m.get(f"{src}_shield", 0.0))
+        invoice = m[f"{src}_invoice"] - shield + float(cfg.monthly_fee) + c.extra_invoice
+        if source == "pstryk" and c.shield is not None:
+            shield = c.shield
         if source == "pstryk" and c.deposit_used is not None:
             used = c.deposit_used
         else:
@@ -552,6 +647,8 @@ def deposit_ledger(
                 "fv_number": c.fv_number,
                 "inflow": _round_pln(inflow),
                 "invoice": _round_pln(invoice),
+                "shield": _round_pln(shield),
+                "wallet": _round_pln(c.wallet),
                 "bonus": _round_pln(c.bonus),
                 "used": _round_pln(used),
                 "to_pay": _round_pln(to_pay),
@@ -575,7 +672,7 @@ def monthly_rows(
     by_t = {r["month"]: r for r in ledger_t}
     rows: list[dict[str, Any]] = []
     prev_d_dep = 0.0
-    sums = {k: 0.0 for k in ("imp_p", "imp_t", "exp_p", "exp_t")}
+    sums = {k: 0.0 for k in ("imp_p", "imp_t", "exp_p", "exp_t", "shield_p", "shield_t")}
     for month in sorted(model):
         m = model[month]
         rp, rt = by_p.get(month), by_t.get(month)
@@ -607,6 +704,10 @@ def monthly_rows(
                 "inflow_p": rp["inflow"],
                 "inflow_t": rt["inflow"],
                 "invoice_p": rp["invoice"],
+                "invoice_t": rt["invoice"],
+                "shield_p": rp["shield"],
+                "shield_t": rt["shield"],
+                "wallet": rp["wallet"],
                 "used_p": rp["used"],
                 "used_t": rt["used"],
                 "bonus": rp["bonus"],
@@ -621,6 +722,8 @@ def monthly_rows(
         sums["imp_t"] += m["t_imp"]
         sums["exp_p"] += m["p_exp"]
         sums["exp_t"] += m["t_exp"]
+        sums["shield_p"] += rp["shield"]
+        sums["shield_t"] += rt["shield"]
 
     d_imp_tot = sums["imp_p"] - sums["imp_t"]
     d_exp_tot = sums["exp_p"] - sums["exp_t"]
@@ -634,6 +737,8 @@ def monthly_rows(
         "exp_t": _round_kwh(sums["exp_t"]),
         "d_exp": _round_kwh(d_exp_tot),
         "d_exp_pct": _pct(d_exp_tot, sums["exp_t"]),
+        "shield_p": _round_pln(sums["shield_p"]),
+        "shield_t": _round_pln(sums["shield_t"]),
         "dep_p": last.get("dep_p"),
         "dep_t": last.get("dep_t"),
         "d_dep": last.get("d_dep"),
@@ -641,7 +746,15 @@ def monthly_rows(
     return rows, totals
 
 
-_OFFICIAL_FLOAT_KEYS = ("invoice", "deposit_used", "bonus", "to_pay", "inflow")
+_OFFICIAL_FLOAT_KEYS = (
+    "invoice",
+    "deposit_used",
+    "bonus",
+    "shield",
+    "wallet",
+    "to_pay",
+    "inflow",
+)
 
 
 def parse_official_months(raw: Any) -> dict[str, dict[str, Any]]:

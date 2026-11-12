@@ -446,6 +446,7 @@ class MonthlySensor(CompareSensorBase):
             "totals": d.monthly_totals,
             "settled_through": d.deposit_settled_through,
             "basis": self.coordinator.basis,
+            "shield_years": d.shield_years,
             "statistics": {
                 metric: statistic_id_for(meter, metric)
                 for metric in (

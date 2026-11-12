@@ -53,6 +53,8 @@ OFFICIAL_SCHEMA = vol.Schema(
         vol.Optional("invoice"): vol.Coerce(float),
         vol.Optional("deposit_used"): vol.Coerce(float),
         vol.Optional("bonus"): vol.Coerce(float),
+        vol.Optional("shield"): vol.Coerce(float),
+        vol.Optional("wallet"): vol.Coerce(float),
         vol.Optional("to_pay"): vol.Coerce(float),
         vol.Optional("inflow"): vol.Coerce(float),
         vol.Optional("number"): cv.string,
@@ -135,7 +137,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             return {"month": month, "cleared": True, "official_months": official}
 
         row: dict[str, Any] = dict(official.get(month) or {})
-        for key in ("invoice", "deposit_used", "bonus", "to_pay", "inflow"):
+        for key in ("invoice", "deposit_used", "bonus", "shield", "wallet", "to_pay", "inflow"):
             if key in call.data and call.data[key] is not None:
                 row[key] = float(call.data[key])
         if call.data.get("number"):

@@ -16,7 +16,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .calc import parse_official_months
+from .calc import parse_official_months, parse_shield_years
 from .const import (
     CONF_API_KEY,
     CONF_BACKFILL_TAURON,
@@ -29,10 +29,13 @@ from .const import (
     CONF_MONTHLY_FEE,
     CONF_OFFICIAL_MONTHS,
     CONF_SETTLEMENT_DAY,
+    CONF_SHIELD_YEARS,
     CONF_SOURCE_TYPE,
     CONF_STAT_IDS,
     CONF_SYNC_INTERVAL_HOURS,
     CONF_TAURON_BASIS,
+    SHIELD_GROSS_ENERGY_SERVICE,
+    SHIELD_RULES,
     DEFAULT_BACKFILL_TAURON,
     DEFAULT_DEPOSIT_OPENING_BALANCE,
     DEFAULT_MONTHLY_FEE,
@@ -372,12 +375,19 @@ class PstrykOsdCompareOptionsFlow(OptionsFlow):
                 out[CONF_SETTLEMENT_DAY] = int(
                     out.get(CONF_SETTLEMENT_DAY, DEFAULT_SETTLEMENT_DAY)
                 )
+                out[CONF_SHIELD_YEARS] = sorted(
+                    str(y) for y in parse_shield_years(out.get(CONF_SHIELD_YEARS) or [], date.min)
+                )
                 return self.async_create_entry(title="", data=out)
 
         opts = self.config_entry.options
         basis_options = ["balanced", "gross"]
         adj_text = _json_default(opts.get(CONF_MONTHLY_ADJUSTMENTS))
         official_text = _json_default(opts.get(CONF_OFFICIAL_MONTHS))
+        contract_start = date.fromisoformat(self.config_entry.data[CONF_CONTRACT_START])
+        shield_default = sorted(
+            str(y) for y in parse_shield_years(opts.get(CONF_SHIELD_YEARS), contract_start)
+        )
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
@@ -433,6 +443,20 @@ class PstrykOsdCompareOptionsFlow(OptionsFlow):
                         )
                     ),
                     vol.Optional(
+                        CONF_SHIELD_YEARS, default=shield_default
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                selector.SelectOptionDict(
+                                    value=str(y), label=_shield_label(y)
+                                )
+                                for y in sorted(SHIELD_RULES)
+                            ],
+                            multiple=True,
+                            mode=selector.SelectSelectorMode.LIST,
+                        )
+                    ),
+                    vol.Optional(
                         CONF_MONTHLY_ADJUSTMENTS,
                         default=adj_text,
                     ): selector.TextSelector(
@@ -452,6 +476,13 @@ class PstrykOsdCompareOptionsFlow(OptionsFlow):
             ),
             errors=errors,
         )
+
+
+def _shield_label(year: int) -> str:
+    limit, rule_basis = SHIELD_RULES[year]
+    if rule_basis == SHIELD_GROSS_ENERGY_SERVICE:
+        return f"{year}: ≤ {limit:.2f} zł/kWh brutto (energia + opłata za obsługę)"
+    return f"{year}: ≤ {limit:.2f} zł/kWh netto (sama energia)"
 
 
 def _json_default(value: Any) -> str:

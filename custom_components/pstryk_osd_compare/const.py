@@ -31,6 +31,7 @@ CONF_MONTHLY_FEE = "monthly_fee"
 CONF_MONTHLY_ADJUSTMENTS = "monthly_adjustments"
 CONF_OFFICIAL_MONTHS = "official_months"
 CONF_SETTLEMENT_DAY = "settlement_day"
+CONF_SHIELD_YEARS = "shield_years"
 
 SOURCE_TAURON = "tauron"
 SOURCE_CUSTOM = "custom"
@@ -46,11 +47,25 @@ DEFAULT_MONTHLY_ADJUSTMENTS: dict[str, float] = {}
 DEFAULT_OFFICIAL_MONTHS: dict[str, dict] = {}
 DEFAULT_SETTLEMENT_DAY = 6  # Pstryk issues invoices ~4th–6th; app shows M-2 until then
 
+# Tarcza Pstryk: when the monthly weighted average of the basis exceeds the limit,
+# the invoice gets "Rabat – Tarcza Pstryk" down to the limit (per pstryk.pl/blog/tarcza-pstryk).
+SHIELD_GROSS_ENERGY_SERVICE = "gross_energy_service"  # (energy + service fee), gross
+SHIELD_NET_ENERGY = "net_energy"  # energy only, net (no service fee, no distribution)
+SHIELD_RULES: dict[int, tuple[float, str]] = {
+    2025: (0.62, SHIELD_GROSS_ENERGY_SERVICE),
+    2026: (0.61, SHIELD_GROSS_ENERGY_SERVICE),
+    2027: (0.50, SHIELD_NET_ENERGY),  # only customers who signed by 31.12.2026
+}
+SHIELD_LAST_OPEN_YEAR = 2026  # rules for later years require a contract from this year or earlier
+VAT_RATE = 0.23
+
 # Keys accepted inside official_months[YYYY-MM]
 OFFICIAL_MONTH_FIELDS = (
     "invoice",
     "deposit_used",
     "bonus",
+    "shield",
+    "wallet",
     "to_pay",
     "inflow",
     "number",

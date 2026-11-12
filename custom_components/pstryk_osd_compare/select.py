@@ -13,7 +13,14 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import CompareCoordinator
-from .fv import closed_months, default_month, get_draft, official_months_of, prefill
+from .fv import (
+    closed_months,
+    default_month,
+    get_draft,
+    model_invoice,
+    official_months_of,
+    prefill,
+)
 from .sensor import _device_info, osd_entity_id
 
 
@@ -91,9 +98,12 @@ class FvMonthSelect(CoordinatorEntity[CompareCoordinator], SelectEntity):
         rows = {r["month"]: r for r in self._rows()}
         model = (d.month_model.get(month) if d and month else None) or {}
         fee = d.monthly_fee if d else 0.0
+        shield_avg = model.get("p_shield_avg")
         return {
             "saved_fv": official.get(month) if month else None,
-            "model_invoice": round(model["p_invoice"] + fee, 2) if model else None,
+            "model_invoice": model_invoice(model, fee) if model else None,
+            "model_shield": round(model.get("p_shield", 0.0), 2) if model else None,
+            "model_shield_avg": round(shield_avg, 4) if shield_avg is not None else None,
             "model_inflow": round(model["p_inflow"], 2) if model else None,
             "missing_fv": [
                 m for m in self.options if rows.get(m, {}).get("status") != "fv"

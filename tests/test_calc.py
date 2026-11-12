@@ -13,6 +13,7 @@ from pstryk_osd_compare.calc import (
     build_corrections,
     compute_fixed,
     cumulative_series,
+    default_shield_years,
     deposit_ledger,
     filter_hours_by_contract,
     hour_metrics,
@@ -22,8 +23,10 @@ from pstryk_osd_compare.calc import (
     month_model_totals,
     monthly_rows,
     parse_official_months,
+    parse_shield_years,
     period_bounds,
     settled_through_month,
+    shield_discount,
     summarize,
 )
 from pstryk_osd_compare.const import BASIS_BALANCED, BASIS_GROSS, TZ
@@ -370,3 +373,98 @@ def test_filter_hours_by_contract():
     filtered = filter_hours_by_contract(hours, date(2026, 5, 1))
     assert before not in filtered
     assert len(filtered) == 3
+
+
+def test_shield_discount_2026_gross_energy_and_service():
+    # 100 kWh, energy 0.60 net + service 0.08 net → 0.8364 brutto/kWh > 0.61
+    disc, avg = shield_discount(2026, 100.0, 60.0, 8.0, {2026})
+    assert avg == pytest.approx(0.8364)
+    assert disc == pytest.approx(83.64 - 61.0)
+
+
+def test_shield_discount_2027_net_energy_only():
+    # Service fee ignored; 0.60 net energy vs 0.50 limit → 10 zł net = 12.30 brutto
+    disc, avg = shield_discount(2027, 100.0, 60.0, 8.0, {2027})
+    assert avg == pytest.approx(0.60)
+    assert disc == pytest.approx(12.30)
+
+
+def test_shield_discount_below_limit_or_disabled():
+    assert shield_discount(2026, 100.0, 40.0, 8.0, {2026})[0] == 0.0
+    assert shield_discount(2026, 100.0, 90.0, 8.0, {2027}) == (0.0, None)
+    assert shield_discount(2031, 100.0, 90.0, 8.0, {2031}) == (0.0, None)
+    assert shield_discount(2026, 0.0, 0.0, 0.0, {2026}) == (0.0, None)
+
+
+def test_default_and_parsed_shield_years():
+    assert default_shield_years(date(2026, 5, 1)) == [2026, 2027]
+    assert default_shield_years(date(2025, 3, 1)) == [2025, 2026, 2027]
+    assert default_shield_years(date(2027, 1, 15)) == []
+    assert parse_shield_years(None, date(2026, 5, 1)) == {2026, 2027}
+    assert parse_shield_years(["2026", "x", "2031"], date(2026, 5, 1)) == {2026}
+    assert parse_shield_years([], date(2026, 5, 1)) == frozenset()
+
+
+def _shield_hours() -> tuple[dict[int, dict], int]:
+    """Two November 2026 hours: 1.0 kWh @ 1.00 net and 1.0 kWh @ 0.40 net (OSD: 2 kWh each)."""
+    t1 = int(datetime(2026, 11, 10, 17, tzinfo=TZ).astimezone(UTC).timestamp())
+    t2 = t1 + 3600
+    base = {"p_exp": 0.0, "sell": 0.0, "fixed": 0.0, "svc": 0.08, "t_exp": 0.0}
+    hours = {
+        t1: {**base, "p_imp": 1.0, "buy": 1.5, "api_cost": 1.5, "e_net": 1.00, "t_imp": 2.0},
+        t2: {**base, "p_imp": 1.0, "buy": 0.6, "api_cost": 0.6, "e_net": 0.40, "t_imp": 2.0},
+    }
+    return hours, t2
+
+
+def test_month_model_totals_shield_per_side():
+    hours, until = _shield_hours()
+    m = month_model_totals(hours, BASIS_GROSS, until, date(2026, 11, 1), {2026})["2026-11"]
+    # Σ(energy+service) = 1.08 + 0.48 = 1.56 net → 1.9188 brutto; limit 2 kWh × 0.61 = 1.22
+    assert m["p_shield"] == pytest.approx(1.9188 - 1.22)
+    assert m["p_shield_avg"] == pytest.approx(0.9594)
+    assert m["t_shield"] == pytest.approx(2 * (1.9188 - 1.22))
+    off = month_model_totals(hours, BASIS_GROSS, until, date(2026, 11, 1), ())["2026-11"]
+    assert off["p_shield"] == 0.0 and off["p_shield_avg"] is None
+
+
+def test_month_model_totals_skips_hours_without_net_price():
+    hours, until = _shield_hours()
+    for rec in hours.values():
+        rec.pop("e_net")
+    m = month_model_totals(hours, BASIS_GROSS, until, date(2026, 11, 1), {2026})["2026-11"]
+    assert m["p_shield"] == 0.0
+    assert m["p_invoice"] == pytest.approx(2.1)
+
+
+def test_ledger_subtracts_shield_and_fv_keeps_measurement_delta():
+    model = {
+        "2026-10": _model_month(p_inflow=1000.0, p_invoice=0.0),
+        "2026-11": {
+            **_model_month(p_invoice=400.0, t_invoice=420.0),
+            "p_shield": 50.0,
+            "t_shield": 60.0,
+        },
+    }
+    corr = build_corrections(model, {})
+    lp = deposit_ledger(model, corr, source="pstryk", cfg=DepositConfig())
+    lt = deposit_ledger(model, corr, source="tauron", cfg=DepositConfig())
+    assert lp[1]["invoice"] == 350.0 and lp[1]["shield"] == 50.0
+    assert lt[1]["invoice"] == 360.0 and lt[1]["shield"] == 60.0
+    # FV after Tarcza (48.00) and Portfel (61.50): residual goes to both sides equally
+    fv = {"2026-11": {"invoice": 290.50, "shield": 48.0, "wallet": 61.50}}
+    corr = build_corrections(model, fv)
+    assert corr["2026-11"].extra_invoice == pytest.approx(290.50 - 350.0)
+    lp = deposit_ledger(model, corr, source="pstryk", cfg=DepositConfig())
+    lt = deposit_ledger(model, corr, source="tauron", cfg=DepositConfig())
+    assert lp[1]["invoice"] == 290.50
+    assert lp[1]["shield"] == 48.0 and lp[1]["wallet"] == 61.50
+    assert lt[1]["invoice"] == pytest.approx(360.0 + 290.50 - 350.0)
+    rows, totals = monthly_rows(model, lp, lt, "2026-10")
+    assert rows[1]["shield_p"] == 48.0 and rows[1]["shield_t"] == 60.0
+    assert totals["shield_p"] == 48.0
+
+
+def test_parse_official_months_shield_and_wallet():
+    out = parse_official_months({"2026-10": {"invoice": 300, "shield": "12.5", "wallet": 61.5}})
+    assert out["2026-10"] == {"invoice": 300.0, "shield": 12.5, "wallet": 61.5}

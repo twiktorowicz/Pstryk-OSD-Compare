@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.3.0
+
+### Tarcza Pstryk
+
+- Integracja liczy miesięczny **„Rabat – Tarcza Pstryk”** z cen godzinowych API (energia netto + opłata za obsługę) i odejmuje go od faktury w modelu depozytu — również w **bieżącym miesiącu** (szacunek na dziś).
+- Zasady: 2025 — 0,62 zł/kWh brutto (energia + obsługa), 2026 — 0,61 zł/kWh brutto (energia + obsługa), 2027 — 0,50 zł/kWh netto (sama energia, umowy podpisane do 31.12.2026).
+- Nowa opcja **Lata z Tarczą Pstryk** (Konfiguruj) — domyślnie lata od startu umowy; odznacz rok, w którym nie masz tarczy.
+- Strona OSD dostaje rabat policzony z kWh OSD, więc Δ depozytu dalej wynika tylko z pomiarów.
+- Po aktualizacji integracja **jednorazowo pobiera ponownie** historię z API Pstryk (ceny netto) — pierwsza synchronizacja może potrwać kilka minut.
+
+### Formularz FV
+
+- Nowe pola **FV tarcza** (`number.osd_fv_tarcza`, podpowiadane z modelu) i **FV portfel** (`number.osd_fv_portfel`, np. 61,50 zł za polecenie). Obie kwoty informacyjne — **FV faktura** to wartość brutto faktury już po rabatach.
+- Usługa `set_official_month` przyjmuje `shield` i `wallet`.
+- `sensor.osd_miesiace`: kolumny `shield_p`, `shield_t`, `wallet`, `invoice_t`, atrybut `shield_years`; `select.osd_fv_miesiac`: `model_shield`, `model_shield_avg`.
+- Przykładowy dashboard: kolumny Tarcza / Portfel w „Korekty z FV”, nowe pola formularza.
+
+---
+
 ## v1.2.0
 
 ### Zmiana nazw — sprawdź swój dashboard

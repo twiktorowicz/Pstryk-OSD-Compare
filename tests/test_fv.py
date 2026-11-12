@@ -39,15 +39,36 @@ def test_default_month_falls_back_to_last_closed() -> None:
 def test_prefill_from_saved_fv() -> None:
     official = {"2026-09": {"invoice": 120.5, "deposit_used": 90.0, "bonus": 30.5, "number": "SE/1"}}
     values, number = prefill("2026-09", official, {})
-    assert values == {"invoice": 120.5, "deposit_used": 90.0, "bonus": 30.5, "inflow": None}
+    assert values == {
+        "invoice": 120.5,
+        "deposit_used": 90.0,
+        "bonus": 30.5,
+        "shield": None,
+        "wallet": None,
+        "inflow": None,
+    }
     assert number == "SE/1"
 
 
 def test_prefill_from_model_adds_monthly_fee() -> None:
     model = {"2026-10": {"p_invoice": 100.004, "p_inflow": 250.126}}
     values, number = prefill("2026-10", {}, model, monthly_fee=9.99)
-    assert values == {"invoice": 109.99, "deposit_used": None, "bonus": None, "inflow": 250.13}
+    assert values == {
+        "invoice": 109.99,
+        "deposit_used": None,
+        "bonus": None,
+        "shield": 0.0,
+        "wallet": None,
+        "inflow": 250.13,
+    }
     assert number == ""
+
+
+def test_prefill_from_model_subtracts_shield() -> None:
+    model = {"2026-11": {"p_invoice": 400.0, "p_shield": 55.554, "p_inflow": 10.0}}
+    values, _ = prefill("2026-11", {}, model)
+    assert values["invoice"] == 344.45
+    assert values["shield"] == 55.55
 
 
 def test_draft_to_row_skips_empty_fields() -> None:

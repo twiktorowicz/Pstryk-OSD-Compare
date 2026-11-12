@@ -113,8 +113,21 @@ Instalacja ręczna: skopiuj `custom_components/pstryk_osd_compare/` do `/config/
 | Saldo początkowe depozytu | 0 zł | gdy umowa zaczęła się z niezerowym depozytem |
 | Dodatkowa opłata miesięczna | 0 zł | opłaty spoza API doliczane do modelu faktury |
 | Dzień rozliczenia | 6 | Pstryk wystawia FV zwykle 4.–6. dnia; do tego dnia depozyt „rozliczony” liczony jest do M−2, potem do M−1. Wpisanie FV za M−1 przesuwa to od razu. |
-| Korekty miesięczne (JSON) | `{}` | `{"YYYY-MM": ±PLN}` — np. bonus za polecenie |
+| Lata z Tarczą Pstryk | od roku startu umowy; 2027 tylko dla umów sprzed 2027 | lata, w których Twoja umowa ma [Tarczę Pstryk](https://pstryk.pl/blog/tarcza-pstryk) — odznacz rok, w którym jej nie masz |
+| Korekty miesięczne (JSON) | `{}` | `{"YYYY-MM": ±PLN}` — dowolne uznania spoza FV |
 | Oficjalne FV (JSON) | `{}` | wygodniej: formularz FV (niżej) |
+
+### Tarcza Pstryk
+
+Gdy średnia ważona ceny z całego miesiąca przekroczy próg, Pstryk daje na FV „Rabat – Tarcza Pstryk” do poziomu progu. API godzinowe tego rabatu nie zawiera, więc integracja liczy go sama z cen godzinowych (energia netto + opłata za obsługę z API):
+
+| Rok | Próg | Podstawa średniej |
+|---|---|---|
+| 2025 | 0,62 zł/kWh brutto | energia + opłata za obsługę |
+| 2026 | 0,61 zł/kWh brutto | energia + opłata za obsługę |
+| 2027 | 0,50 zł/kWh netto | sama energia (bez obsługi i dystrybucji); dla umów podpisanych do 31.12.2026 |
+
+Rabat obniża fakturę w modelu depozytu, także w bieżącym miesiącu (szacunek na dziś — ostateczny zależy od średniej z całego miesiąca). Strona OSD dostaje rabat policzony z kWh OSD.
 
 ## Encje
 
@@ -139,12 +152,14 @@ Przy drugim wpisie (drugi licznik) HA doda do identyfikatorów sufiks `_2`.
 API Pstryka nie udostępnia faktur ani salda depozytu, a FV zawierają pozycje, których nie widać w danych godzinowych (opłaty, bonus lojalnościowy). Po opublikowaniu FV w aplikacji Pstryk:
 
 1. Na dashboardzie kliknij **Dodaj / popraw FV** (lub użyj encji `*_osd_fv_*` z urządzenia).
-2. Wybierz miesiąc — domyślnie pierwszy zamknięty miesiąc bez FV. Pola wypełniają się modelem z API (faktura, oddana energia) albo zapisaną wcześniej FV.
+2. Wybierz miesiąc — domyślnie pierwszy zamknięty miesiąc bez FV. Pola wypełniają się modelem z API (faktura po Tarczy, Tarcza, oddana energia) albo zapisaną wcześniej FV.
 3. Przepisz z FV:
 
    | Pole | Pozycja na FV |
    |---|---|
-   | FV faktura | Wartość brutto faktury |
+   | FV faktura | Wartość brutto faktury — **po** rabatach (Tarcza, Portfel Pstryk) |
+   | FV tarcza | Rabat – Tarcza Pstryk (liczba dodatnia; informacyjnie) |
+   | FV portfel | Portfel Pstryk, np. 61,50 zł za polecenie (liczba dodatnia; informacyjnie) |
    | FV z depozytu | Rozliczenie depozytu prosumenta |
    | FV bonus | Rozliczenie bonusu lojalnościowego |
    | FV oddana energia | Oddana energia (zasilenie depozytu) |
@@ -159,7 +174,7 @@ Jak FV wpływa na wyliczenia: różnica `FV − model z API` traktowana jest jak
 Dla każdej dopasowanej godziny, osobno dla kWh Pstryka i kWh OSD (te same ceny Pstryka):
 
 - **wpływ** miesiąca = Σ eksport × cena sprzedaży,
-- **faktura** miesiąca = Σ koszt poboru (+ opcjonalna opłata miesięczna),
+- **faktura** miesiąca = Σ koszt poboru − Tarcza Pstryk (+ opcjonalna opłata miesięczna),
 - faktura za miesiąc M pokrywana jest z salda na koniec M−1, potem dochodzi wpływ za M,
 - depozyt pokrywa **całą** fakturę — na FV rozbitą na „Rozliczenie depozytu prosumenta” i „Rozliczenie bonusu lojalnościowego”; obie pozycje zmniejszają depozyt,
 - depozyt nie wygasa; reszta przechodzi na kolejny miesiąc.

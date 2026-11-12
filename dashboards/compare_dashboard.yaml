@@ -80,6 +80,7 @@ views:
               kWh i PLN. Depozyt = saldo na koniec miesiąca; Δ depozytu narasta, w nawiasie przyrost w danym miesiącu.
               Faktura za miesiąc schodzi z depozytu (saldo z końca poprzedniego miesiąca) w całości — „bonus lojalnościowy” na FV to też depozyt.
               FV = korekty z faktury (opłaty spoza API) stosowane do obu stron jednakowo, więc Δ wynika tylko z pomiarów.
+              Tarcza Pstryk (lata wybrane w opcjach integracji) obniża fakturę każdej strony osobno — liczona z kWh Pstryka i z kWh OSD.
             grid_options:
               columns: 24
               rows: auto
@@ -145,11 +146,13 @@ views:
           - type: markdown
             content: |
               {%- set rows = state_attr('sensor.osd_miesiace','rows') or [] -%}
-              | Miesiąc | Nr FV | Faktura | Z depozytu | w tym bonus | Gotówką |
-              |---|---|---:|---:|---:|---:|
+              | Miesiąc | Nr FV | Faktura | Tarcza | Portfel | Z depozytu | w tym bonus | Gotówką |
+              |---|---|---:|---:|---:|---:|---:|---:|
               {% for r in rows if r.status == 'fv' -%}
-              | {{ r.month }} | {{ r.fv_number or '—' }} | {{ '%.2f' | format(r.invoice_p) }} | {{ '%.2f' | format(r.used_p) }} | {{ '%.2f' | format(r.bonus) }} | {{ '%.2f' | format([r.invoice_p - r.used_p, 0] | max) }} |
+              | {{ r.month }} | {{ r.fv_number or '—' }} | {{ '%.2f' | format(r.invoice_p) }} | {{ '%.2f' | format(r.shield_p or 0) }} | {{ '%.2f' | format(r.wallet or 0) }} | {{ '%.2f' | format(r.used_p) }} | {{ '%.2f' | format(r.bonus) }} | {{ '%.2f' | format([r.invoice_p - r.used_p, 0] | max) }} |
               {% endfor %}
+              {%- set open = rows | selectattr('status', 'ne', 'fv') | list %}
+              {% if open and (open[-1].shield_p or 0) > 0 %}Tarcza Pstryk za {{ open[-1].month }} (szacunek na dziś): **{{ '%.2f' | format(open[-1].shield_p) }} zł** (OSD: {{ '%.2f' | format(open[-1].shield_t) }} zł).{% endif %}
               {%- set missing = state_attr('select.osd_fv_miesiac','missing_fv') or [] %}
               {% if missing %}Brak FV za: **{{ missing | join(', ') }}**.{% endif %}
           - type: button
@@ -181,6 +184,10 @@ views:
                 name: Numer FV
               - entity: number.osd_fv_faktura
                 name: Wartość brutto faktury
+              - entity: number.osd_fv_tarcza
+                name: Rabat – Tarcza Pstryk
+              - entity: number.osd_fv_portfel
+                name: Portfel Pstryk (polecenia)
               - entity: number.osd_fv_z_depozytu
                 name: Rozliczenie depozytu prosumenta
               - entity: number.osd_fv_bonus
@@ -230,12 +237,17 @@ views:
               | | Z modelu (API) | Zapisane z FV |
               |---|---:|---:|
               | Faktura brutto | {{ v(state_attr(e, 'model_invoice')) }} | {{ v(fv.get('invoice')) }} |
+              | Tarcza Pstryk | {{ v(state_attr(e, 'model_shield')) }} | {{ v(fv.get('shield')) }} |
+              | Portfel Pstryk | — | {{ v(fv.get('wallet')) }} |
               | Oddana energia | {{ v(state_attr(e, 'model_inflow')) }} | {{ v(fv.get('inflow')) }} |
               | Z depozytu | — | {{ v(fv.get('deposit_used')) }} |
               | Bonus | — | {{ v(fv.get('bonus')) }} |
+              {% set avg = state_attr(e, 'model_shield_avg') %}{% if avg is not none %}
+              Średnia ceny w regule tarczy (model): **{{ '%.3f' | format(avg) }} zł/kWh**.{% endif %}
 
               Kwoty przepisz z FV Pstryka (aplikacja → Faktury):
-              - **Wartość brutto faktury** — suma faktury.
+              - **Wartość brutto faktury** — suma faktury **po** rabatach (Tarcza, Portfel Pstryk), przed rozliczeniem depozytu.
+              - **Rabat – Tarcza Pstryk** i **Portfel Pstryk** — kwoty brutto jako liczby dodatnie (informacyjnie; są już w sumie faktury).
               - **Rozliczenie depozytu prosumenta** i **Rozliczenie bonusu lojalnościowego** — obie pozycje schodzą z depozytu.
               - **Oddana energia** — zasilenie depozytu za miesiąc (zwykle równe wartości z modelu).
 

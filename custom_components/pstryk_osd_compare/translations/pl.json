@@ -58,7 +58,7 @@
     "step": {
       "init": {
         "title": "Opcje Pstryk OSD Compare",
-        "description": "Korekty: obiekt JSON \"YYYY-MM\" → PLN. Oficjalne FV: obiekt JSON \"YYYY-MM\" → obiekt z polami invoice, deposit_used, bonus, inflow, number (wygodniej: encje formularza FV). Dzień rozliczenia: do tego dnia aplikacja pokazuje depozyt do M−2, potem do M−1.",
+        "description": "Korekty: obiekt JSON \"YYYY-MM\" → PLN. Oficjalne FV: obiekt JSON \"YYYY-MM\" → obiekt z polami invoice, deposit_used, bonus, shield, wallet, inflow, number (wygodniej: encje formularza FV). Dzień rozliczenia: do tego dnia aplikacja pokazuje depozyt do M−2, potem do M−1. Tarcza Pstryk: zaznacz lata, w których Twoja umowa ma tarczę (2027 tylko dla umów podpisanych do 31.12.2026).",
         "data": {
           "tauron_basis": "Podstawa OSD (balanced / gross)",
           "sync_interval_hours": "Interwał synchronizacji (godziny)",
@@ -66,6 +66,7 @@
           "deposit_opening_balance": "Saldo początkowe depozytu (PLN)",
           "monthly_fee": "Dodatkowa opłata miesięczna (PLN)",
           "settlement_day": "Dzień rozliczenia faktury (1–28)",
+          "shield_years": "Lata z Tarczą Pstryk",
           "monthly_adjustments": "Korekty miesięczne (JSON)",
           "official_months": "Oficjalne FV / miesiące (JSON)"
         }

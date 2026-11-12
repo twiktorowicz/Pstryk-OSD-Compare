@@ -13,7 +13,12 @@ if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
-FV_AMOUNT_KEYS = ("invoice", "deposit_used", "bonus", "inflow")
+FV_AMOUNT_KEYS = ("invoice", "deposit_used", "bonus", "shield", "wallet", "inflow")
+
+
+def model_invoice(m: dict[str, Any], monthly_fee: float = 0.0) -> float:
+    """Model invoice after the Tarcza Pstryk discount (comparable with FV gross total)."""
+    return round(float(m["p_invoice"]) - float(m.get("p_shield", 0.0)) + monthly_fee, 2)
 
 
 def official_months_of(entry: ConfigEntry) -> dict[str, dict[str, Any]]:
@@ -64,7 +69,8 @@ def prefill(
     model: dict[str, dict[str, Any]],
     monthly_fee: float = 0.0,
 ) -> tuple[dict[str, float | None], str]:
-    """Draft values for a month: saved FV if any, else model invoice/inflow (bonus/deposit empty)."""
+    """Draft values for a month: saved FV if any, else model invoice/Tarcza/inflow
+    (bonus/deposit/wallet empty)."""
     fv = official.get(month)
     if fv:
         values = {k: fv.get(k) for k in FV_AMOUNT_KEYS}
@@ -72,7 +78,8 @@ def prefill(
     m = model.get(month) or {}
     values: dict[str, float | None] = {k: None for k in FV_AMOUNT_KEYS}
     if m:
-        values["invoice"] = round(float(m["p_invoice"]) + monthly_fee, 2)
+        values["invoice"] = model_invoice(m, monthly_fee)
+        values["shield"] = round(float(m.get("p_shield", 0.0)), 2)
         values["inflow"] = round(float(m["p_inflow"]), 2)
     return values, ""
 

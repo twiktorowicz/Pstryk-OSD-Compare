@@ -29,6 +29,7 @@ from .calc import (
     month_model_totals,
     monthly_rows,
     parse_official_months,
+    parse_shield_years,
     period_bounds,
     settled_through_month,
     summarize,
@@ -45,6 +46,7 @@ from .const import (
     CONF_MONTHLY_FEE,
     CONF_OFFICIAL_MONTHS,
     CONF_SETTLEMENT_DAY,
+    CONF_SHIELD_YEARS,
     CONF_SOURCE_TYPE,
     CONF_STAT_IDS,
     CONF_SYNC_INTERVAL_HOURS,
@@ -97,6 +99,7 @@ class CompareData:
     monthly_totals: dict[str, Any] = field(default_factory=dict)
     month_model: dict[str, dict[str, Any]] = field(default_factory=dict)
     monthly_fee: float = 0.0
+    shield_years: list[int] = field(default_factory=list)
 
 
 class CompareCoordinator(DataUpdateCoordinator[CompareData]):
@@ -142,6 +145,12 @@ class CompareCoordinator(DataUpdateCoordinator[CompareData]):
         return self.entry.options.get(CONF_TAURON_BASIS, DEFAULT_TAURON_BASIS)
 
     @property
+    def shield_years(self) -> frozenset[int]:
+        return parse_shield_years(
+            self.entry.options.get(CONF_SHIELD_YEARS), self.contract_start
+        )
+
+    @property
     def stat_ids(self) -> dict[str, str | list[str] | None]:
         return dict(self.entry.data.get(CONF_STAT_IDS) or {})
 
@@ -182,11 +191,16 @@ class CompareCoordinator(DataUpdateCoordinator[CompareData]):
         contract_start_utc = self._contract_start_utc()
 
         # --- Pstryk ---
+        # Hours saved before net prices were kept (Tarcza basis) → one full refetch
+        need_net_prices = any(
+            rec.get("p_imp") is not None and "e_net" not in rec
+            for rec in self.store.hours.values()
+        )
         if force_from is not None:
             p_start = datetime(
                 force_from.year, force_from.month, force_from.day, tzinfo=TZ
             ).astimezone(UTC)
-        elif not self.store.hours:
+        elif not self.store.hours or need_net_prices:
             p_start = contract_start_utc
         else:
             last = self.store.data.get("last_pstryk_hour")
@@ -206,6 +220,12 @@ class CompareCoordinator(DataUpdateCoordinator[CompareData]):
                 pstryk_hours, self.contract_start, self.contract_end
             )
             self.store.merge_pstryk(bounded)
+            if need_net_prices and p_start <= contract_start_utc:
+                # Hours the API did not return again stay without the Tarcza basis
+                for rec in self.store.hours.values():
+                    if rec.get("p_imp") is not None:
+                        rec.setdefault("e_net", None)
+                        rec.setdefault("svc", None)
         except PstrykAuthError as err:
             raise ConfigEntryAuthFailed(f"Pstryk auth failed: {err}") from err
         except PstrykApiError as err:
@@ -426,7 +446,10 @@ class CompareCoordinator(DataUpdateCoordinator[CompareData]):
         )
         matched_ts = [ts for ts, r in hours.items() if is_matched(r)]
         until_ts = max(matched_ts) if matched_ts else int(now_local.astimezone(UTC).timestamp())
-        model = month_model_totals(hours, self.basis, until_ts, self.contract_start)
+        shield_years = self.shield_years
+        model = month_model_totals(
+            hours, self.basis, until_ts, self.contract_start, shield_years
+        )
         corrections = build_corrections(
             model, official_months, monthly_fee=deposit_cfg.monthly_fee
         )
@@ -480,6 +503,7 @@ class CompareCoordinator(DataUpdateCoordinator[CompareData]):
             monthly_totals=m_totals,
             month_model=model,
             monthly_fee=deposit_cfg.monthly_fee,
+            shield_years=sorted(shield_years),
         )
 
     def _coverage_until(self, until_day: date) -> dict[str, Any]:

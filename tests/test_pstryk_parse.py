@@ -25,6 +25,8 @@ SAMPLE_FRAME = {
             "energy_sold_value": 0.2242,
         },
         "pricing": {
+            "price_net": 0.86817,
+            "service_price": 0.08,
             "price_gross": 1.27297,
             "price_prosumer_gross": None,
         },
@@ -42,6 +44,8 @@ def test_parse_frame_basic():
     assert fields["sell"] is None
     assert fields["api_cost"] == 0.1139
     assert fields["fixed"] == 0.1139 - 0.048 * 1.27297
+    assert fields["e_net"] == 0.86817
+    assert fields["svc"] == 0.08
     # 2026-10-31 10:00 UTC
     assert ts == 1793440800 or ts > 0
 

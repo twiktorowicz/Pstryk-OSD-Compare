@@ -63,6 +63,8 @@ def parse_frame(frame: dict[str, Any]) -> tuple[int, dict[str, Any]] | None:
     sell_f = float(sell) if sell is not None else None
     api_cost_f = float(api_cost) if api_cost is not None else None
     api_sold_f = float(api_sold) if api_sold is not None else None
+    e_net = pricing.get("price_net")
+    svc = pricing.get("service_price")
 
     return ts, {
         "p_imp": p_imp_f,
@@ -72,6 +74,9 @@ def parse_frame(frame: dict[str, Any]) -> tuple[int, dict[str, Any]] | None:
         "api_cost": api_cost_f,
         "api_sold": api_sold_f,
         "fixed": compute_fixed(api_cost_f, p_imp_f, buy_f),
+        # Tarcza Pstryk basis: energy price net and service fee net (zł/kWh)
+        "e_net": float(e_net) if e_net is not None else None,
+        "svc": float(svc) if svc is not None else None,
     }
 
 

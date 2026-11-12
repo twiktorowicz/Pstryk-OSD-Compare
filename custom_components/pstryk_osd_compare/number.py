@@ -15,6 +15,8 @@ FIELDS = (
     ("invoice", "FV faktura", "mdi:file-document"),
     ("deposit_used", "FV z depozytu", "mdi:piggy-bank-outline"),
     ("bonus", "FV bonus", "mdi:gift-outline"),
+    ("shield", "FV tarcza", "mdi:shield-check-outline"),
+    ("wallet", "FV portfel", "mdi:wallet-outline"),
     ("inflow", "FV oddana energia", "mdi:transmission-tower-export"),
 )
 
