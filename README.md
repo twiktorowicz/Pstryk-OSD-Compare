@@ -113,7 +113,7 @@ Instalacja ręczna: skopiuj `custom_components/pstryk_osd_compare/` do `/config/
 | Saldo początkowe depozytu | 0 zł | gdy umowa zaczęła się z niezerowym depozytem |
 | Dodatkowa opłata miesięczna | 0 zł | opłaty spoza API doliczane do modelu faktury |
 | Dzień rozliczenia | 6 | Pstryk wystawia FV zwykle 4.–6. dnia; do tego dnia depozyt „rozliczony” liczony jest do M−2, potem do M−1. Wpisanie FV za M−1 przesuwa to od razu. |
-| Lata z Tarczą Pstryk | od roku startu umowy; 2027 tylko dla umów sprzed 2027 | lata, w których Twoja umowa ma [Tarczę Pstryk](https://pstryk.pl/blog/tarcza-pstryk) — odznacz rok, w którym jej nie masz |
+| Lata z Tarczą Pstryk | od roku startu umowy; 2027 tylko gdy umowa zaczęła się przed 2027 | lata, w których Twoja umowa ma [Tarczę Pstryk](https://pstryk.pl/blog/tarcza-pstryk) — odznacz rok, w którym jej nie masz; zaznacz 2027 ręcznie, jeśli umowę podpisałeś do 31.12.2026, a dostawy ruszyły w 2027 |
 | Korekty miesięczne (JSON) | `{}` | `{"YYYY-MM": ±PLN}` — dowolne uznania spoza FV |
 | Oficjalne FV (JSON) | `{}` | wygodniej: formularz FV (niżej) |
 
@@ -124,10 +124,15 @@ Gdy średnia ważona ceny z całego miesiąca przekroczy próg, Pstryk daje na F
 | Rok | Próg | Podstawa średniej |
 |---|---|---|
 | 2025 | 0,62 zł/kWh brutto | energia + opłata za obsługę |
-| 2026 | 0,61 zł/kWh brutto | energia + opłata za obsługę |
-| 2027 | 0,50 zł/kWh netto | sama energia (bez obsługi i dystrybucji); dla umów podpisanych do 31.12.2026 |
+| 2026 | 0,61 zł/kWh brutto | energia + opłata za obsługę ([regulamin 2026](https://pstryk.pl/regulamin-tarcza-pstryk-2026)) |
+| 2027 | 0,50 zł/kWh netto | sama energia (bez obsługi i dystrybucji); dla umów **zawartych** do 31.12.2026 ([regulamin 2027](https://pstryk.pl/regulamin-tarcza-pstryk-2027)) |
 
 Rabat obniża fakturę w modelu depozytu, także w bieżącym miesiącu (szacunek na dziś — ostateczny zależy od średniej z całego miesiąca). Strona OSD dostaje rabat policzony z kWh OSD.
+
+Uwagi z regulaminów:
+- Warunkiem tarczy jest **sprawnie działający miernik Pstryk** — integracja tego nie sprawdza.
+- Obecny regulamin 2026 podaje okres 1.01.2025–31.12.2026 z progiem 0,61 zł; dla 2025 integracja przyjmuje 0,62 zł, który Pstryk podawał w 2025 r. (artykuł o fakturze z 09.2025). Jeśli Twoja FV za 2025 pokazuje inaczej — zgłoś issue.
+- Model zakłada **taryfę dynamiczną Pstryk** (rozliczenie z godzinowych danych licznika zdalnego odczytu). W „Planie z rabatem dynamicznym” (bez licznika zdalnego odczytu: stała cena za kWh + rabat z miernika) faktura liczona jest inaczej i model jej nie odtworzy.
 
 ## Encje
 

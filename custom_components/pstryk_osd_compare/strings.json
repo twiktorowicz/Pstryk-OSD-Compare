@@ -58,7 +58,7 @@
     "step": {
       "init": {
         "title": "Pstryk OSD Compare options",
-        "description": "Adjustments: JSON object mapping \"YYYY-MM\" to PLN. Official invoices: JSON object mapping \"YYYY-MM\" to an object with invoice, deposit_used, bonus, shield, wallet, inflow, number (easier: the FV form entities). Settlement day: before that day the app shows deposit through M−2, then through M−1. Tarcza Pstryk: tick the years in which your contract has the shield (2027 only for contracts signed by 31.12.2026).",
+        "description": "Adjustments: JSON object mapping \"YYYY-MM\" to PLN. Official invoices: JSON object mapping \"YYYY-MM\" to an object with invoice, deposit_used, bonus, shield, wallet, inflow, number (easier: the FV form entities). Settlement day: before that day the app shows deposit through M−2, then through M−1. Tarcza Pstryk: tick the years in which your contract has the shield (2027 only for contracts signed by 31.12.2026 — tick it manually if you signed in 2026 but supply started in 2027; requires a working Pstryk meter).",
         "data": {
           "tauron_basis": "DSO energy basis (balanced / gross)",
           "sync_interval_hours": "Sync interval (hours)",
